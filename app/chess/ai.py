@@ -148,7 +148,15 @@ class AI:
                 return self._quiescence(board, alpha, beta)
             return self._evaluate(board)
 
-        color = board.move_history[-1][4].color if board.move_history else self.color
+        if board.move_history:
+            from_row, from_col, to_row, to_col, captured = board.move_history[-1]
+            moved_piece = board.get_piece(to_row, to_col)
+            if moved_piece:
+                color = moved_piece.color
+            else:
+                color = self.color
+        else:
+            color = self.color
         moves = board.get_all_valid_moves(color)
 
         if not moves:
@@ -176,7 +184,15 @@ class AI:
         if stand_pat > alpha:
             alpha = stand_pat
 
-        color = board.move_history[-1][4].color if board.move_history else self.color
+        if board.move_history:
+            from_row, from_col, to_row, to_col, captured = board.move_history[-1]
+            moved_piece = board.get_piece(to_row, to_col)
+            if moved_piece:
+                color = moved_piece.color
+            else:
+                color = self.color
+        else:
+            color = self.color
         all_moves = board.get_all_valid_moves(color)
 
         capture_moves = []
@@ -200,7 +216,15 @@ class AI:
         return alpha
 
     def _evaluate(self, board: Board) -> float:
-        current_color = board.move_history[-1][4].color if board.move_history else self.color
+        if board.move_history:
+            from_row, from_col, to_row, to_col, captured = board.move_history[-1]
+            moved_piece = board.get_piece(to_row, to_col)
+            if moved_piece:
+                current_color = moved_piece.color
+            else:
+                current_color = self.color
+        else:
+            current_color = self.color
         opponent_color = Color.BLACK if current_color == Color.RED else Color.RED
 
         score = 0.0

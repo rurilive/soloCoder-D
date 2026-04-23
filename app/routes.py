@@ -4,10 +4,19 @@ from app.chess.game import Game
 from app.chess.pieces import Color
 from app.chess.ai import Difficulty
 import uuid
+import traceback
 
 app.secret_key = 'chinese-chess-secret-key-2024'
 
 games = {}
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    app.logger.error(f"Unhandled exception: {e}")
+    app.logger.error(traceback.format_exc())
+    if request.path.startswith('/api/'):
+        return jsonify({'error': str(e), 'success': False}), 500
+    return render_template('index.html'), 500
 
 def get_or_create_game() -> Game:
     game_id = session.get('game_id')
