@@ -162,8 +162,8 @@ body {
 
 .board-grid {
     position: relative;
-    width: calc(8 * var(--cell-size));
-    height: calc(9 * var(--cell-size));
+    width: calc(8 * var(--cell-size) + var(--cell-size));
+    height: calc(9 * var(--cell-size) + var(--cell-size));
 }
 
 .grid-lines {
@@ -180,23 +180,22 @@ body {
     position: absolute;
     height: 2px;
     background-color: var(--board-border);
-    left: 0;
-    right: 0;
+    left: calc(var(--cell-size) / 2);
+    right: calc(var(--cell-size) / 2);
 }
 
 .grid-line-v {
     position: absolute;
     width: 2px;
     background-color: var(--board-border);
-    top: 0;
-    bottom: 0;
+    top: calc(var(--cell-size) / 2);
+    bottom: calc(var(--cell-size) / 2);
 }
 
 .grid-line-v-top {
     position: absolute;
     width: 2px;
     background-color: var(--board-border);
-    top: 0;
     height: calc(4 * var(--cell-size));
 }
 
@@ -204,15 +203,14 @@ body {
     position: absolute;
     width: 2px;
     background-color: var(--board-border);
-    bottom: 0;
     height: calc(4 * var(--cell-size));
 }
 
 .river {
     position: absolute;
-    top: calc(4 * var(--cell-size));
-    left: 0;
-    right: 0;
+    top: calc(var(--cell-size) / 2 + 4 * var(--cell-size));
+    left: calc(var(--cell-size) / 2);
+    right: calc(var(--cell-size) / 2);
     height: var(--cell-size);
     display: flex;
     justify-content: center;

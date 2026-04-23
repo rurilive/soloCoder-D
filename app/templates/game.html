@@ -91,16 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridLines = document.getElementById('gridLines');
     if (gridLines) {
         const cellSize = 50;
+        const offset = 25;
 
         for (let row = 0; row < 10; row++) {
             const line = document.createElement('div');
             line.className = 'grid-line-h';
-            line.style.top = (row * cellSize) + 'px';
+            line.style.top = (offset + row * cellSize) + 'px';
             gridLines.appendChild(line);
         }
 
         for (let col = 0; col < 9; col++) {
-            const x = col * cellSize;
+            const x = offset + col * cellSize;
             
             if (col === 0 || col === 8) {
                 const line = document.createElement('div');
@@ -111,11 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const topLine = document.createElement('div');
                 topLine.className = 'grid-line-v-top';
                 topLine.style.left = x + 'px';
+                topLine.style.top = offset + 'px';
                 gridLines.appendChild(topLine);
 
                 const bottomLine = document.createElement('div');
                 bottomLine.className = 'grid-line-v-bottom';
                 bottomLine.style.left = x + 'px';
+                bottomLine.style.top = (offset + 5 * cellSize) + 'px';
                 gridLines.appendChild(bottomLine);
             }
         }
@@ -124,8 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const bottomPalace = { row: 7, col: 3 };
 
         [topPalace, bottomPalace].forEach(palace => {
-            const y = palace.row * cellSize;
-            const x = palace.col * cellSize;
+            const y = offset + palace.row * cellSize;
+            const x = offset + palace.col * cellSize;
 
             const diag1 = document.createElement('div');
             diag1.className = 'palace-diag palace-diag-1';

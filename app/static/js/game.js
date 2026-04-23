@@ -136,13 +136,14 @@ class ChineseChessGame {
 
         const board = this.gameState.board;
         const cellSize = 50;
+        const offset = 25;
 
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 9; col++) {
                 const piece = board[row][col];
                 if (piece) {
-                    const x = col * cellSize;
-                    const y = row * cellSize;
+                    const x = offset + col * cellSize;
+                    const y = offset + row * cellSize;
 
                     const cell = document.createElement('div');
                     cell.className = 'intersection';
@@ -178,10 +179,11 @@ class ChineseChessGame {
 
         const validMoves = this.gameState.valid_moves || [];
         const cellSize = 50;
+        const offset = 25;
 
         validMoves.forEach(([row, col]) => {
-            const x = col * cellSize;
-            const y = row * cellSize;
+            const x = offset + col * cellSize;
+            const y = offset + row * cellSize;
 
             const targetPiece = this.gameState.board[row][col];
             
@@ -212,11 +214,12 @@ class ChineseChessGame {
         if (!lastMove) return;
 
         const cellSize = 50;
+        const offset = 25;
         const [fromRow, fromCol, toRow, toCol] = lastMove;
 
         [[fromRow, fromCol], [toRow, toCol]].forEach(([row, col]) => {
-            const x = col * cellSize;
-            const y = row * cellSize;
+            const x = offset + col * cellSize;
+            const y = offset + row * cellSize;
 
             const moveEl = document.createElement('div');
             moveEl.className = 'last-move-highlight';
