@@ -9,7 +9,73 @@ class ChineseChessGame {
 
     init() {
         this.setupEventListeners();
+        this.renderGridLines();
         this.loadGameState();
+        this.setupResizeListener();
+    }
+
+    getCellSize() {
+        const root = document.documentElement;
+        const cellSizeValue = getComputedStyle(root).getPropertyValue('--cell-size');
+        return parseFloat(cellSizeValue) || 50;
+    }
+
+    renderGridLines() {
+        const gridLines = document.getElementById('gridLines');
+        if (!gridLines) return;
+
+        gridLines.innerHTML = '';
+        const cellSize = this.getCellSize();
+
+        for (let row = 0; row < 10; row++) {
+            const line = document.createElement('div');
+            line.className = 'grid-line-h';
+            line.style.top = (row * cellSize) + 'px';
+            gridLines.appendChild(line);
+        }
+
+        for (let col = 0; col < 9; col++) {
+            const x = col * cellSize;
+
+            if (col === 0 || col === 8) {
+                const line = document.createElement('div');
+                line.className = 'grid-line-v';
+                line.style.left = x + 'px';
+                gridLines.appendChild(line);
+            } else {
+                const topLine = document.createElement('div');
+                topLine.className = 'grid-line-v-top';
+                topLine.style.left = x + 'px';
+                topLine.style.top = '0px';
+                gridLines.appendChild(topLine);
+
+                const bottomLine = document.createElement('div');
+                bottomLine.className = 'grid-line-v-bottom';
+                bottomLine.style.left = x + 'px';
+                bottomLine.style.top = (5 * cellSize) + 'px';
+                gridLines.appendChild(bottomLine);
+            }
+        }
+
+        const topPalace = { row: 0, col: 3 };
+        const bottomPalace = { row: 7, col: 3 };
+
+        [topPalace, bottomPalace].forEach(palace => {
+            const y = palace.row * cellSize;
+            const x = palace.col * cellSize;
+
+            const diag1 = document.createElement('div');
+            diag1.className = 'palace-diag palace-diag-1';
+            diag1.style.left = x + 'px';
+            diag1.style.top = y + 'px';
+            gridLines.appendChild(diag1);
+
+            const diag2 = document.createElement('div');
+            diag2.className = 'palace-diag palace-diag-2';
+            diag2.style.left = (x + 2 * cellSize) + 'px';
+            diag2.style.top = y + 'px';
+            gridLines.appendChild(diag2);
+        });
     }
 
     setupEventListeners() {
@@ -77,6 +143,19 @@ class ChineseChessGame {
         });
     }
 
+    setupResizeListener() {
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.renderGridLines();
+                if (this.gameState) {
+                    this.renderBoard();
+                }
+            }, 100);
+        });
+    }
+
     showNewGameModal() {
         const modal = document.getElementById('newGameModal');
         if (modal) {
@@ -114,7 +193,7 @@ class ChineseChessGame {
         try {
             const response = await fetch('/api/state');
             const data = await response.json();
-            
+
             if (data.status !== 'waiting') {
                 this.gameState = data;
                 this.renderBoard();
@@ -135,15 +214,14 @@ class ChineseChessGame {
         piecesLayer.innerHTML = '';
 
         const board = this.gameState.board;
-        const cellSize = 50;
-        const offset = 25;
+        const cellSize = this.getCellSize();
 
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 9; col++) {
                 const piece = board[row][col];
                 if (piece) {
-                    const x = offset + col * cellSize;
-                    const y = offset + row * cellSize;
+                    const x = col * cellSize;
+                    const y = row * cellSize;
 
                     const cell = document.createElement('div');
                     cell.className = 'intersection';
@@ -156,8 +234,8 @@ class ChineseChessGame {
                     pieceEl.className = `piece ${piece.color}`;
                     pieceEl.textContent = piece.name;
 
-                    if (this.gameState.selected_piece && 
-                        this.gameState.selected_piece[0] === row && 
+                    if (this.gameState.selected_piece &&
+                        this.gameState.selected_piece[0] === row &&
                         this.gameState.selected_piece[1] === col) {
                         pieceEl.classList.add('selected');
                     }
@@ -178,15 +256,14 @@ class ChineseChessGame {
         if (!piecesLayer || !this.gameState) return;
 
         const validMoves = this.gameState.valid_moves || [];
-        const cellSize = 50;
-        const offset = 25;
+        const cellSize = this.getCellSize();
 
         validMoves.forEach(([row, col]) => {
-            const x = offset + col * cellSize;
-            const y = offset + row * cellSize;
+            const x = col * cellSize;
+            const y = row * cellSize;
 
             const targetPiece = this.gameState.board[row][col];
-            
+
             const clickArea = document.createElement('div');
             clickArea.className = 'clickable-area';
             clickArea.style.left = x + 'px';
@@ -213,13 +290,12 @@ class ChineseChessGame {
         const lastMove = this.gameState.last_move;
         if (!lastMove) return;
 
-        const cellSize = 50;
-        const offset = 25;
+        const cellSize = this.getCellSize();
         const [fromRow, fromCol, toRow, toCol] = lastMove;
 
         [[fromRow, fromCol], [toRow, toCol]].forEach(([row, col]) => {
-            const x = offset + col * cellSize;
-            const y = offset + row * cellSize;
+            const x = col * cellSize;
+            const y = row * cellSize;
 
             const moveEl = document.createElement('div');
             moveEl.className = 'last-move-highlight';
