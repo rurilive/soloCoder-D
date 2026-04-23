@@ -13,6 +13,8 @@
     --board-border: #8b4513;
     --red-piece: #dc143c;
     --black-piece: #1a1a1a;
+    --cell-size: 50px;
+    --board-padding: 25px;
 }
 
 * {
@@ -153,15 +155,15 @@ body {
 .chess-board {
     background-color: var(--board-bg);
     border: 8px solid var(--board-border);
-    padding: 20px;
+    padding: var(--board-padding);
     position: relative;
     user-select: none;
 }
 
 .board-grid {
     position: relative;
-    width: 360px;
-    height: 400px;
+    width: calc(8 * var(--cell-size));
+    height: calc(9 * var(--cell-size));
 }
 
 .grid-lines {
@@ -171,60 +173,71 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
+    z-index: 1;
 }
 
-.horizontal-line {
+.grid-line-h {
     position: absolute;
     height: 2px;
     background-color: var(--board-border);
-    left: 20px;
-    right: 20px;
+    left: 0;
+    right: 0;
 }
 
-.vertical-line {
+.grid-line-v {
     position: absolute;
     width: 2px;
     background-color: var(--board-border);
-}
-
-.vertical-line.top {
     top: 0;
-    height: 44.4%;
+    bottom: 0;
 }
 
-.vertical-line.bottom {
+.grid-line-v-top {
+    position: absolute;
+    width: 2px;
+    background-color: var(--board-border);
+    top: 0;
+    height: calc(4 * var(--cell-size));
+}
+
+.grid-line-v-bottom {
+    position: absolute;
+    width: 2px;
+    background-color: var(--board-border);
     bottom: 0;
-    height: 44.4%;
+    height: calc(4 * var(--cell-size));
 }
 
 .river {
     position: absolute;
-    top: 45%;
+    top: calc(4 * var(--cell-size));
     left: 0;
     right: 0;
-    height: 10%;
+    height: var(--cell-size);
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 16px;
+    font-size: 18px;
     color: var(--board-border);
-    letter-spacing: 30px;
+    letter-spacing: 40px;
     pointer-events: none;
+    z-index: 1;
 }
 
-.palace-line {
+.palace-diag {
     position: absolute;
     height: 2px;
     background-color: var(--board-border);
-    width: 113px;
-}
-
-.palace-line.diag-1 {
-    transform: rotate(45deg);
+    width: calc(2 * var(--cell-size) * 1.414);
     transform-origin: left center;
+    z-index: 1;
 }
 
-.palace-line.diag-2 {
+.palace-diag-1 {
+    transform: rotate(45deg);
+}
+
+.palace-diag-2 {
     transform: rotate(-45deg);
     transform-origin: right center;
 }
@@ -235,17 +248,19 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    z-index: 10;
 }
 
-.cell {
+.intersection {
     position: absolute;
-    width: 50px;
-    height: 50px;
+    width: var(--cell-size);
+    height: var(--cell-size);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transform: translate(-50%, -50%);
+    z-index: 10;
 }
 
 .piece {
@@ -263,6 +278,7 @@ body {
         2px 2px 5px rgba(0,0,0,0.4);
     transition: transform 0.1s, box-shadow 0.1s;
     cursor: pointer;
+    z-index: 20;
 }
 
 .piece.red {
@@ -300,6 +316,7 @@ body {
     transform: translate(-50%, -50%);
     pointer-events: none;
     animation: pulse 1s infinite;
+    z-index: 5;
 }
 
 .valid-capture {
@@ -311,16 +328,28 @@ body {
     transform: translate(-50%, -50%);
     pointer-events: none;
     animation: pulse 1s infinite;
+    z-index: 5;
 }
 
-.last-move {
+.last-move-highlight {
     position: absolute;
     width: 50px;
     height: 50px;
     background-color: rgba(255, 255, 0, 0.3);
     border: 2px solid var(--nes-yellow);
+    border-radius: 4px;
     transform: translate(-50%, -50%);
     pointer-events: none;
+    z-index: 2;
+}
+
+.clickable-area {
+    position: absolute;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 15;
 }
 
 @keyframes pulse {
@@ -504,51 +533,21 @@ body {
     margin: 20px;
 }
 
-.coordinates {
-    position: absolute;
-    pointer-events: none;
-    font-size: 8px;
-    color: var(--board-border);
-}
-
-.coord-top {
-    top: -15px;
-    width: 100%;
-    display: flex;
-    justify-content: space-around;
-}
-
-.coord-left {
-    left: -20px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-}
-
-.coord-right {
-    right: -20px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
-}
-
 @media (max-width: 768px) {
     .page-title {
         font-size: 14px;
     }
 
     .board-grid {
-        width: 288px;
-        height: 320px;
+        width: calc(8 * 40px);
+        height: calc(9 * 40px);
     }
 
     .chess-board {
-        padding: 15px;
+        padding: 20px;
     }
 
-    .cell {
+    .intersection {
         width: 40px;
         height: 40px;
     }

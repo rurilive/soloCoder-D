@@ -80,18 +80,16 @@ class ReplayPlayer {
 
         const board = step.board;
         const cellSize = 50;
-        const startX = 20;
-        const startY = 20;
 
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 9; col++) {
                 const piece = board[row][col];
                 if (piece) {
-                    const x = startX + col * cellSize;
-                    const y = startY + row * cellSize;
+                    const x = col * cellSize;
+                    const y = row * cellSize;
 
                     const cell = document.createElement('div');
-                    cell.className = 'cell';
+                    cell.className = 'intersection';
                     cell.style.left = x + 'px';
                     cell.style.top = y + 'px';
 
@@ -113,17 +111,14 @@ class ReplayPlayer {
         if (!piecesLayer || !lastMove) return;
 
         const cellSize = 50;
-        const startX = 20;
-        const startY = 20;
-
         const [fromRow, fromCol, toRow, toCol] = lastMove;
 
         [[fromRow, fromCol], [toRow, toCol]].forEach(([row, col]) => {
-            const x = startX + col * cellSize;
-            const y = startY + row * cellSize;
+            const x = col * cellSize;
+            const y = row * cellSize;
 
             const moveEl = document.createElement('div');
-            moveEl.className = 'last-move';
+            moveEl.className = 'last-move-highlight';
             moveEl.style.left = x + 'px';
             moveEl.style.top = y + 'px';
             piecesLayer.appendChild(moveEl);

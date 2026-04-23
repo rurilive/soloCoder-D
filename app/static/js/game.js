@@ -136,18 +136,16 @@ class ChineseChessGame {
 
         const board = this.gameState.board;
         const cellSize = 50;
-        const startX = 20;
-        const startY = 20;
 
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 9; col++) {
                 const piece = board[row][col];
                 if (piece) {
-                    const x = startX + col * cellSize;
-                    const y = startY + row * cellSize;
+                    const x = col * cellSize;
+                    const y = row * cellSize;
 
                     const cell = document.createElement('div');
-                    cell.className = 'cell';
+                    cell.className = 'intersection';
                     cell.style.left = x + 'px';
                     cell.style.top = y + 'px';
                     cell.dataset.row = row;
@@ -179,37 +177,30 @@ class ChineseChessGame {
         if (!piecesLayer || !this.gameState) return;
 
         const validMoves = this.gameState.valid_moves || [];
-        const selectedPiece = this.gameState.selected_piece;
-
         const cellSize = 50;
-        const startX = 20;
-        const startY = 20;
 
         validMoves.forEach(([row, col]) => {
-            const x = startX + col * cellSize;
-            const y = startY + row * cellSize;
+            const x = col * cellSize;
+            const y = row * cellSize;
 
             const targetPiece = this.gameState.board[row][col];
-            const moveEl = document.createElement('div');
             
+            const clickArea = document.createElement('div');
+            clickArea.className = 'clickable-area';
+            clickArea.style.left = x + 'px';
+            clickArea.style.top = y + 'px';
+            clickArea.addEventListener('click', () => this.handleCellClick(row, col));
+            piecesLayer.appendChild(clickArea);
+
+            const moveEl = document.createElement('div');
             if (targetPiece) {
                 moveEl.className = 'valid-capture';
             } else {
                 moveEl.className = 'valid-move';
             }
-            
             moveEl.style.left = x + 'px';
             moveEl.style.top = y + 'px';
-            moveEl.dataset.row = row;
-            moveEl.dataset.col = col;
-
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.style.left = x + 'px';
-            cell.style.top = y + 'px';
-            cell.appendChild(moveEl);
-            cell.addEventListener('click', () => this.handleCellClick(row, col));
-            piecesLayer.appendChild(cell);
+            piecesLayer.appendChild(moveEl);
         });
     }
 
@@ -221,17 +212,14 @@ class ChineseChessGame {
         if (!lastMove) return;
 
         const cellSize = 50;
-        const startX = 20;
-        const startY = 20;
-
         const [fromRow, fromCol, toRow, toCol] = lastMove;
 
         [[fromRow, fromCol], [toRow, toCol]].forEach(([row, col]) => {
-            const x = startX + col * cellSize;
-            const y = startY + row * cellSize;
+            const x = col * cellSize;
+            const y = row * cellSize;
 
             const moveEl = document.createElement('div');
-            moveEl.className = 'last-move';
+            moveEl.className = 'last-move-highlight';
             moveEl.style.left = x + 'px';
             moveEl.style.top = y + 'px';
             piecesLayer.appendChild(moveEl);
