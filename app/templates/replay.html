@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}中国象棋 - 复盘{% endblock %}
+{% block page_title %}棋局复盘{% endblock %}
+
+{% block content %}
+<a href="/" class="nes-btn back-btn">返回主页</a>
+
+<div class="game-container">
+    <div class="board-wrapper">
+        <div class="chess-board">
+            <div class="board-grid">
+                <div class="grid-lines" id="gridLines">
+                </div>
+                <div class="river">楚河 汉界</div>
+                <div class="pieces-layer"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-info">
+        <div class="nes-container replay-info">
+            <div id="stepText" class="replay-step-text">加载中...</div>
+        </div>
+
+        <div class="replay-controls">
+            <button class="nes-btn" id="firstBtn">|<</button>
+            <button class="nes-btn" id="prevBtn"><</button>
+            <button class="nes-btn nes-btn-primary" id="playBtn">播放</button>
+            <button class="nes-btn" id="pauseBtn">暂停</button>
+            <button class="nes-btn" id="nextBtn">></button>
+            <button class="nes-btn" id="lastBtn">>|</button>
+        </div>
+
+        <div class="game-controls">
+            <button class="nes-btn nes-btn-primary" id="continueBtn">继续对局</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/replay.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const gridLines = document.getElementById('gridLines');
+    if (gridLines) {
+        const cellSize = 50;
+        const startX = 20;
+        const startY = 20;
+
+        for (let row = 0; row < 10; row++) {
+            const line = document.createElement('div');
+            line.className = 'horizontal-line';
+            line.style.top = (startY + row * cellSize) + 'px';
+            gridLines.appendChild(line);
+        }
+
+        for (let col = 0; col < 9; col++) {
+            const x = startX + col * cellSize;
+            
+            if (col === 0 || col === 8) {
+                const line = document.createElement('div');
+                line.className = 'vertical-line';
+                line.style.left = x + 'px';
+                line.style.top = '0';
+                line.style.height = '100%';
+                gridLines.appendChild(line);
+            } else {
+                const topLine = document.createElement('div');
+                topLine.className = 'vertical-line top';
+                topLine.style.left = x + 'px';
+                gridLines.appendChild(topLine);
+
+                const bottomLine = document.createElement('div');
+                bottomLine.className = 'vertical-line bottom';
+                bottomLine.style.left = x + 'px';
+                gridLines.appendChild(bottomLine);
+            }
+        }
+
+        const topPalace = { row: 0, col: 3 };
+        const bottomPalace = { row: 7, col: 3 };
+        const palaceSize = 112;
+
+        [topPalace, bottomPalace].forEach(palace => {
+            const y = startY + palace.row * cellSize;
+            const x = startX + palace.col * cellSize;
+
+            const diag1 = document.createElement('div');
+            diag1.className = 'palace-line diag-1';
+            diag1.style.left = x + 'px';
+            diag1.style.top = y + 'px';
+            gridLines.appendChild(diag1);
+
+            const diag2 = document.createElement('div');
+            diag2.className = 'palace-line diag-2';
+            diag2.style.left = (x + palaceSize) + 'px';
+            diag2.style.top = y + 'px';
+            gridLines.appendChild(diag2);
+        });
+    }
+});
+</script>
+{% endblock %}

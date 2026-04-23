@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}中国象棋 - 红白机风格{% endblock %}
+{% block page_title %}中国象棋<br>红白机经典版{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="nes-container menu-option">
+        <span class="option-label">选择执子</span>
+        <div class="color-selector">
+            <button class="nes-btn color-btn selected" data-color="red">红方 (先手)</button>
+            <button class="nes-btn color-btn" data-color="black">黑方 (后手)</button>
+        </div>
+    </div>
+
+    <div class="nes-container menu-option">
+        <span class="option-label">选择难度</span>
+        <div class="difficulty-selector">
+            <button class="nes-btn difficulty-btn" data-difficulty="easy">简单</button>
+            <button class="nes-btn difficulty-btn selected" data-difficulty="medium">中等</button>
+            <button class="nes-btn difficulty-btn" data-difficulty="hard">困难</button>
+        </div>
+    </div>
+
+    <button class="nes-btn start-btn" id="startGameBtn">开始游戏</button>
+</div>
+
+<div class="main-menu nes-container" style="margin-top: 30px;">
+    <span class="option-label" style="font-size: 10px; line-height: 2;">
+        游戏说明：<br>
+        - 点击棋子选择，点击高亮位置移动<br>
+        - 支持"车五进三"等中文棋谱表述<br>
+        - 可分享对弈记录，支持复盘回放
+    </span>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const colorBtns = document.querySelectorAll('.color-btn');
+    const diffBtns = document.querySelectorAll('.difficulty-btn');
+    const startBtn = document.getElementById('startGameBtn');
+
+    colorBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            colorBtns.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    diffBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            diffBtns.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    startBtn.addEventListener('click', async () => {
+        const selectedColor = document.querySelector('.color-btn.selected');
+        const selectedDiff = document.querySelector('.difficulty-btn.selected');
+
+        const playerColor = selectedColor ? selectedColor.dataset.color : 'red';
+        const difficulty = selectedDiff ? selectedDiff.dataset.difficulty : 'medium';
+
+        try {
+            const response = await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_color: playerColor, difficulty })
+            });
+
+            if (response.ok) {
+                window.location.href = '/game';
+            }
+        } catch (error) {
+            console.error('Failed to start game:', error);
+            alert('开始游戏失败，请重试');
+        }
+    });
+});
+</script>
+{% endblock %}

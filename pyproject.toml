@@ -1,0 +1,24 @@
+[project]
+name = "chinese-chess"
+version = "0.1.0"
+description = "A classic Chinese chess game with NES-style UI"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[build-system]
+requires = ["flit_core>=3.2"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "app"
+
+[tool.uv]
+python-preference = "only-managed"

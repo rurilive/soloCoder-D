@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}中国象棋 - 游戏中{% endblock %}
+{% block page_title %}中国象棋{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div class="board-wrapper">
+        <div class="chess-board">
+            <div class="board-grid">
+                <div class="grid-lines" id="gridLines">
+                </div>
+                <div class="river">楚河 汉界</div>
+                <div class="pieces-layer"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-info">
+        <div class="nes-container status-panel">
+            <div class="turn-indicator">
+                <div class="turn-dot red" id="turnIndicator"></div>
+                <span id="turnText" class="status-text">红方回合</span>
+            </div>
+            <div id="statusText" class="status-text">游戏进行中</div>
+            <div id="difficultyText" class="status-text">难度: 中等</div>
+        </div>
+
+        <div class="nes-container move-history">
+            <span class="option-label">棋谱记录</span>
+            <ul class="move-list" id="moveList">
+            </ul>
+        </div>
+
+        <div class="game-controls">
+            <button class="nes-btn" id="newGameBtn">新游戏</button>
+            <button class="nes-btn" id="shareBtn">分享</button>
+            <button class="nes-btn" id="refreshBtn">刷新</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="newGameModal">
+    <div class="modal-content">
+        <h2 class="modal-title">开始新游戏</h2>
+        <div class="modal-body">
+            <div class="menu-option">
+                <span class="option-label">选择执子</span>
+                <div class="color-selector">
+                    <button class="nes-btn color-btn selected" data-color="red">红方</button>
+                    <button class="nes-btn color-btn" data-color="black">黑方</button>
+                </div>
+            </div>
+            <div class="menu-option">
+                <span class="option-label">选择难度</span>
+                <div class="difficulty-selector">
+                    <button class="nes-btn difficulty-btn" data-difficulty="easy">简单</button>
+                    <button class="nes-btn difficulty-btn selected" data-difficulty="medium">中等</button>
+                    <button class="nes-btn difficulty-btn" data-difficulty="hard">困难</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-buttons">
+            <button class="nes-btn modal-close">取消</button>
+            <button class="nes-btn nes-btn-primary" id="startGameBtn">开始</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="shareModal">
+    <div class="modal-content">
+        <h2 class="modal-title">分享对局</h2>
+        <div class="modal-body">
+            <p>复制以下链接分享您的对局：</p>
+            <input type="text" class="share-input" id="shareUrl" readonly>
+            <p>或者复制棋谱代码：</p>
+            <input type="text" class="share-input" id="shareCode" readonly>
+        </div>
+        <div class="modal-buttons">
+            <button class="nes-btn modal-close">关闭</button>
+            <button class="nes-btn nes-btn-primary" id="copyShareBtn">复制链接</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/game.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const gridLines = document.getElementById('gridLines');
+    if (gridLines) {
+        const cellSize = 50;
+        const startX = 20;
+        const startY = 20;
+
+        for (let row = 0; row < 10; row++) {
+            const line = document.createElement('div');
+            line.className = 'horizontal-line';
+            line.style.top = (startY + row * cellSize) + 'px';
+            gridLines.appendChild(line);
+        }
+
+        for (let col = 0; col < 9; col++) {
+            const x = startX + col * cellSize;
+            
+            if (col === 0 || col === 8) {
+                const line = document.createElement('div');
+                line.className = 'vertical-line';
+                line.style.left = x + 'px';
+                line.style.top = '0';
+                line.style.height = '100%';
+                gridLines.appendChild(line);
+            } else {
+                const topLine = document.createElement('div');
+                topLine.className = 'vertical-line top';
+                topLine.style.left = x + 'px';
+                gridLines.appendChild(topLine);
+
+                const bottomLine = document.createElement('div');
+                bottomLine.className = 'vertical-line bottom';
+                bottomLine.style.left = x + 'px';
+                gridLines.appendChild(bottomLine);
+            }
+        }
+
+        const topPalace = { row: 0, col: 3 };
+        const bottomPalace = { row: 7, col: 3 };
+        const palaceSize = 112;
+
+        [topPalace, bottomPalace].forEach(palace => {
+            const y = startY + palace.row * cellSize;
+            const x = startX + palace.col * cellSize;
+
+            const diag1 = document.createElement('div');
+            diag1.className = 'palace-line diag-1';
+            diag1.style.left = x + 'px';
+            diag1.style.top = y + 'px';
+            gridLines.appendChild(diag1);
+
+            const diag2 = document.createElement('div');
+            diag2.className = 'palace-line diag-2';
+            diag2.style.left = (x + palaceSize) + 'px';
+            diag2.style.top = y + 'px';
+            gridLines.appendChild(diag2);
+        });
+    }
+});
+</script>
+{% endblock %}

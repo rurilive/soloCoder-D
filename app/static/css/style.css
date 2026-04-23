@@ -1,0 +1,570 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --nes-bg: #c4cfa3;
+    --nes-dark: #5b6b5a;
+    --nes-light: #e8f2d7;
+    --nes-red: #d62828;
+    --nes-black: #1a1a2e;
+    --nes-blue: #003049;
+    --nes-yellow: #fcbf49;
+    --nes-orange: #f77f00;
+    --board-bg: #deb887;
+    --board-border: #8b4513;
+    --red-piece: #dc143c;
+    --black-piece: #1a1a1a;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Press Start 2P', cursive;
+    background-color: var(--nes-bg);
+    min-height: 100vh;
+    image-rendering: pixelated;
+}
+
+.nes-container {
+    background-color: var(--nes-light);
+    border: 4px solid var(--nes-dark);
+    box-shadow: 
+        4px 4px 0 var(--nes-dark),
+        inset 0 0 0 2px var(--nes-light);
+    image-rendering: pixelated;
+}
+
+.nes-btn {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
+    padding: 12px 24px;
+    border: 4px solid var(--nes-dark);
+    background-color: var(--nes-light);
+    cursor: pointer;
+    transition: all 0.1s;
+    text-transform: uppercase;
+    position: relative;
+}
+
+.nes-btn:hover {
+    background-color: var(--nes-yellow);
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--nes-dark);
+}
+
+.nes-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+}
+
+.nes-btn-primary {
+    background-color: var(--nes-blue);
+    color: white;
+    border-color: var(--nes-black);
+}
+
+.nes-btn-primary:hover {
+    background-color: var(--nes-orange);
+}
+
+.nes-btn-danger {
+    background-color: var(--nes-red);
+    color: white;
+}
+
+.page-title {
+    text-align: center;
+    color: var(--nes-black);
+    text-shadow: 3px 3px 0 var(--nes-yellow);
+    margin: 20px 0;
+    font-size: 20px;
+    line-height: 1.5;
+}
+
+.main-menu {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    text-align: center;
+}
+
+.menu-option {
+    margin: 20px 0;
+    padding: 20px;
+}
+
+.option-label {
+    font-size: 12px;
+    color: var(--nes-dark);
+    margin-bottom: 15px;
+    display: block;
+}
+
+.color-selector, .difficulty-selector {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.color-btn, .difficulty-btn {
+    padding: 15px 25px;
+    font-size: 11px;
+}
+
+.color-btn.selected, .difficulty-btn.selected {
+    background-color: var(--nes-yellow);
+    box-shadow: inset 2px 2px 0 var(--nes-dark);
+}
+
+.color-btn[data-color="red"] {
+    color: var(--red-piece);
+}
+
+.color-btn[data-color="black"] {
+    color: var(--black-piece);
+}
+
+.start-btn {
+    margin-top: 30px;
+    padding: 20px 40px;
+    font-size: 14px;
+    background-color: var(--nes-orange);
+    color: white;
+}
+
+.game-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.board-wrapper {
+    position: relative;
+}
+
+.chess-board {
+    background-color: var(--board-bg);
+    border: 8px solid var(--board-border);
+    padding: 20px;
+    position: relative;
+    user-select: none;
+}
+
+.board-grid {
+    position: relative;
+    width: 360px;
+    height: 400px;
+}
+
+.grid-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.horizontal-line {
+    position: absolute;
+    height: 2px;
+    background-color: var(--board-border);
+    left: 20px;
+    right: 20px;
+}
+
+.vertical-line {
+    position: absolute;
+    width: 2px;
+    background-color: var(--board-border);
+}
+
+.vertical-line.top {
+    top: 0;
+    height: 44.4%;
+}
+
+.vertical-line.bottom {
+    bottom: 0;
+    height: 44.4%;
+}
+
+.river {
+    position: absolute;
+    top: 45%;
+    left: 0;
+    right: 0;
+    height: 10%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    color: var(--board-border);
+    letter-spacing: 30px;
+    pointer-events: none;
+}
+
+.palace-line {
+    position: absolute;
+    height: 2px;
+    background-color: var(--board-border);
+    width: 113px;
+}
+
+.palace-line.diag-1 {
+    transform: rotate(45deg);
+    transform-origin: left center;
+}
+
+.palace-line.diag-2 {
+    transform: rotate(-45deg);
+    transform-origin: right center;
+}
+
+.pieces-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.cell {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+}
+
+.piece {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    border: 3px solid;
+    box-shadow: 
+        inset 0 0 5px rgba(0,0,0,0.3),
+        2px 2px 5px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    cursor: pointer;
+}
+
+.piece.red {
+    background: radial-gradient(circle at 30% 30%, #ff6b6b, var(--red-piece));
+    color: #8b0000;
+    border-color: #8b0000;
+}
+
+.piece.black {
+    background: radial-gradient(circle at 30% 30%, #4a4a4a, var(--black-piece));
+    color: #f0f0f0;
+    border-color: #333;
+}
+
+.piece:hover {
+    transform: scale(1.05);
+}
+
+.piece.selected {
+    transform: scale(1.15);
+    box-shadow: 
+        0 0 15px var(--nes-yellow),
+        inset 0 0 5px rgba(0,0,0,0.3),
+        2px 2px 5px rgba(0,0,0,0.4);
+    border-color: var(--nes-yellow);
+}
+
+.valid-move {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 255, 0, 0.5);
+    border-radius: 50%;
+    border: 2px solid var(--nes-dark);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: pulse 1s infinite;
+}
+
+.valid-capture {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border: 3px solid var(--nes-orange);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: pulse 1s infinite;
+}
+
+.last-move {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background-color: rgba(255, 255, 0, 0.3);
+    border: 2px solid var(--nes-yellow);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.game-info {
+    width: 300px;
+    padding: 20px;
+}
+
+.status-panel {
+    margin-bottom: 20px;
+    padding: 15px;
+}
+
+.status-text {
+    font-size: 12px;
+    color: var(--nes-dark);
+    margin: 10px 0;
+}
+
+.status-text.check {
+    color: var(--nes-red);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.turn-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.turn-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--nes-dark);
+}
+
+.turn-dot.red {
+    background-color: var(--red-piece);
+}
+
+.turn-dot.black {
+    background-color: var(--black-piece);
+}
+
+.move-history {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.move-list {
+    list-style: none;
+}
+
+.move-item {
+    display: flex;
+    padding: 8px;
+    border-bottom: 1px dashed var(--nes-dark);
+    font-size: 10px;
+}
+
+.move-number {
+    color: var(--nes-dark);
+    margin-right: 10px;
+    min-width: 30px;
+}
+
+.move-notation {
+    flex: 1;
+    color: var(--nes-black);
+}
+
+.move-item:nth-child(odd) {
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.move-item:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.game-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.game-controls .nes-btn {
+    flex: 1;
+    min-width: 120px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--nes-light);
+    border: 8px solid var(--nes-dark);
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+}
+
+.modal-title {
+    font-size: 16px;
+    color: var(--nes-black);
+    margin-bottom: 20px;
+}
+
+.modal-body {
+    font-size: 11px;
+    color: var(--nes-dark);
+    margin-bottom: 20px;
+    line-height: 1.8;
+}
+
+.share-input {
+    width: 100%;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    border: 3px solid var(--nes-dark);
+    background-color: white;
+    margin: 15px 0;
+    word-break: break-all;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.replay-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.replay-info {
+    text-align: center;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.replay-step-text {
+    font-size: 12px;
+    color: var(--nes-dark);
+}
+
+.back-btn {
+    margin: 20px;
+}
+
+.coordinates {
+    position: absolute;
+    pointer-events: none;
+    font-size: 8px;
+    color: var(--board-border);
+}
+
+.coord-top {
+    top: -15px;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+}
+
+.coord-left {
+    left: -20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+.coord-right {
+    right: -20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 14px;
+    }
+
+    .board-grid {
+        width: 288px;
+        height: 320px;
+    }
+
+    .chess-board {
+        padding: 15px;
+    }
+
+    .cell {
+        width: 40px;
+        height: 40px;
+    }
+
+    .piece {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+
+    .game-info {
+        width: 100%;
+    }
+
+    .nes-btn {
+        font-size: 9px;
+        padding: 10px 15px;
+    }
+}
