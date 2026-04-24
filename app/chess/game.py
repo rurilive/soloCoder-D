@@ -192,11 +192,17 @@ class Game:
 
             for notation in notations:
                 moves = Notation.notation_to_moves(temp_board, notation, current_color)
+                
+                if not moves:
+                    other_color = Color.BLACK if current_color == Color.RED else Color.RED
+                    moves = Notation.notation_to_moves(temp_board, notation, other_color)
+                
                 if moves:
                     from_row, from_col, to_row, to_col = moves[0]
                     temp_board.move_piece(from_row, from_col, to_row, to_col)
                     game.last_move = (from_row, from_col, to_row, to_col)
-                    current_color = Color.BLACK if current_color == Color.RED else Color.RED
+                
+                current_color = Color.BLACK if current_color == Color.RED else Color.RED
 
             game.board = temp_board
             game.current_player = current_color
@@ -234,6 +240,11 @@ class Game:
 
             for i, notation in enumerate(notations):
                 moves = Notation.notation_to_moves(temp_board, notation, current_color)
+                
+                if not moves:
+                    other_color = Color.BLACK if current_color == Color.RED else Color.RED
+                    moves = Notation.notation_to_moves(temp_board, notation, other_color)
+                
                 if moves:
                     from_row, from_col, to_row, to_col = moves[0]
                     temp_board.move_piece(from_row, from_col, to_row, to_col)
@@ -243,7 +254,7 @@ class Game:
                     board_state['last_move'] = (from_row, from_col, to_row, to_col)
                     replay_steps.append((step_name, board_state))
 
-                    current_color = Color.BLACK if current_color == Color.RED else Color.RED
+                current_color = Color.BLACK if current_color == Color.RED else Color.RED
 
             return replay_steps
         except Exception:
