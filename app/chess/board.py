@@ -9,9 +9,18 @@ class Board:
     def __init__(self):
         self.grid: List[List[Optional[Piece]]] = [[None for _ in range(self.COLS)] for _ in range(self.ROWS)]
         self.move_history: List[Tuple[int, int, int, int, Optional[Piece]]] = []
+        self._red_pieces: List[Piece] = []
+        self._black_pieces: List[Piece] = []
+        self._red_general_pos: Optional[Tuple[int, int]] = None
+        self._black_general_pos: Optional[Tuple[int, int]] = None
         self._initialize_board()
 
     def _initialize_board(self):
+        self._red_pieces = []
+        self._black_pieces = []
+        self._red_general_pos = None
+        self._black_general_pos = None
+
         for row, col, color, piece_type in [
             (0, 0, Color.BLACK, PieceType.CHARIOT),
             (0, 1, Color.BLACK, PieceType.HORSE),
@@ -46,7 +55,17 @@ class Board:
             (6, 6, Color.RED, PieceType.SOLDIER),
             (6, 8, Color.RED, PieceType.SOLDIER),
         ]:
-            self.grid[row][col] = Piece(color, piece_type, row, col)
+            piece = Piece(color, piece_type, row, col)
+            self.grid[row][col] = piece
+            if color == Color.RED:
+                self._red_pieces.append(piece)
+            else:
+                self._black_pieces.append(piece)
+            if piece_type == PieceType.GENERAL:
+                if color == Color.RED:
+                    self._red_general_pos = (row, col)
+                else:
+                    self._black_general_pos = (row, col)
 
     def get_piece(self, row: int, col: int) -> Optional[Piece]:
         if 0 <= row < self.ROWS and 0 <= col < self.COLS:
@@ -68,8 +87,20 @@ class Board:
         target = self.get_piece(to_row, to_col)
         self.move_history.append((from_row, from_col, to_row, to_col, target))
 
+        if target:
+            if target.color == Color.RED:
+                self._red_pieces.remove(target)
+            else:
+                self._black_pieces.remove(target)
+
         self.set_piece(to_row, to_col, piece)
         self.set_piece(from_row, from_col, None)
+
+        if piece.piece_type == PieceType.GENERAL:
+            if piece.color == Color.RED:
+                self._red_general_pos = (to_row, to_col)
+            else:
+                self._black_general_pos = (to_row, to_col)
 
         return True
 
@@ -82,7 +113,18 @@ class Board:
 
         if piece:
             self.set_piece(from_row, from_col, piece)
+            if piece.piece_type == PieceType.GENERAL:
+                if piece.color == Color.RED:
+                    self._red_general_pos = (from_row, from_col)
+                else:
+                    self._black_general_pos = (from_row, from_col)
         self.set_piece(to_row, to_col, captured)
+
+        if captured:
+            if captured.color == Color.RED:
+                self._red_pieces.append(captured)
+            else:
+                self._black_pieces.append(captured)
 
         return True
 
@@ -149,22 +191,22 @@ class Board:
                     moves.add((nr, nc))
 
         opponent_color = Color.BLACK if piece.color == Color.RED else Color.RED
-        opp_row = None
-        for r in range(self.ROWS):
-            opp = self.get_piece(r, col)
-            if opp and opp.piece_type == PieceType.GENERAL and opp.color == opponent_color:
-                opp_row = r
-                break
+        if opponent_color == Color.RED:
+            opp_general_pos = self._red_general_pos
+        else:
+            opp_general_pos = self._black_general_pos
 
-        if opp_row is not None:
-            min_row, max_row = min(row, opp_row), max(row, opp_row)
-            clear = True
-            for r in range(min_row + 1, max_row):
-                if self.get_piece(r, col) is not None:
-                    clear = False
-                    break
-            if clear:
-                moves.add((opp_row, col))
+        if opp_general_pos:
+            opp_row, opp_col = opp_general_pos
+            if opp_col == col:
+                min_row, max_row = min(row, opp_row), max(row, opp_row)
+                clear = True
+                for r in range(min_row + 1, max_row):
+                    if self.get_piece(r, col) is not None:
+                        clear = False
+                        break
+                if clear:
+                    moves.add((opp_row, col))
 
         return moves
 
@@ -297,37 +339,45 @@ class Board:
         return moves
 
     def get_all_pieces(self, color: Optional[Color] = None) -> List[Piece]:
-        pieces = []
-        for row in range(self.ROWS):
-            for col in range(self.COLS):
-                piece = self.get_piece(row, col)
-                if piece:
-                    if color is None or piece.color == color:
-                        pieces.append(piece)
-        return pieces
+        if color == Color.RED:
+            return list(self._red_pieces)
+        elif color == Color.BLACK:
+            return list(self._black_pieces)
+        else:
+            return self._red_pieces + self._black_pieces
 
     def find_general(self, color: Color) -> Optional[Piece]:
-        for piece in self.get_all_pieces(color):
-            if piece.piece_type == PieceType.GENERAL:
-                return piece
+        if color == Color.RED:
+            pos = self._red_general_pos
+        else:
+            pos = self._black_general_pos
+        if pos:
+            return self.get_piece(pos[0], pos[1])
         return None
 
     def is_in_check(self, color: Color) -> bool:
-        general = self.find_general(color)
-        if general is None:
+        if color == Color.RED:
+            general_pos = self._red_general_pos
+        else:
+            general_pos = self._black_general_pos
+        if general_pos is None:
             return True
+        gen_row, gen_col = general_pos
 
         opponent_color = Color.BLACK if color == Color.RED else Color.RED
-        for piece in self.get_all_pieces(opponent_color):
+        opponent_pieces = self._black_pieces if opponent_color == Color.BLACK else self._red_pieces
+
+        for piece in opponent_pieces:
             moves = self._get_piece_moves(piece)
-            if (general.row, general.col) in moves:
+            if (gen_row, gen_col) in moves:
                 return True
 
         return False
 
     def get_all_valid_moves(self, color: Color) -> List[Tuple[int, int, int, int]]:
         moves = []
-        for piece in self.get_all_pieces(color):
+        pieces = self._red_pieces if color == Color.RED else self._black_pieces
+        for piece in pieces:
             valid_moves = self.get_valid_moves(piece.row, piece.col)
             for to_row, to_col in valid_moves:
                 moves.append((piece.row, piece.col, to_row, to_col))
