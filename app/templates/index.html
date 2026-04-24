@@ -54,27 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    startBtn.addEventListener('click', async () => {
-        const selectedColor = document.querySelector('.color-btn.selected');
-        const selectedDiff = document.querySelector('.difficulty-btn.selected');
-
-        const playerColor = selectedColor ? selectedColor.dataset.color : 'red';
-        const difficulty = selectedDiff ? selectedDiff.dataset.difficulty : 'medium';
-
-        try {
-            const response = await fetch('/api/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player_color: playerColor, difficulty })
-            });
-
-            if (response.ok) {
-                window.location.href = '/game';
-            }
-        } catch (error) {
-            console.error('Failed to start game:', error);
-            alert('开始游戏失败，请重试');
-        }
+    startBtn.addEventListener('click', () => {
+        window.location.href = '/game';
     });
 });
 </script>

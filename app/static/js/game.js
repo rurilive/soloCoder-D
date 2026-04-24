@@ -174,7 +174,8 @@ class ChineseChessGame {
             const response = await fetch('/api/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player_color: playerColor, difficulty })
+                body: JSON.stringify({ player_color: playerColor, difficulty }),
+                credentials: 'include'
             });
 
             const data = await response.json();
@@ -191,7 +192,7 @@ class ChineseChessGame {
 
     async loadGameState() {
         try {
-            const response = await fetch('/api/state');
+            const response = await fetch('/api/state', { credentials: 'include' });
             const data = await response.json();
 
             if (data.status !== 'waiting') {
@@ -219,17 +220,17 @@ class ChineseChessGame {
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 9; col++) {
                 const piece = board[row][col];
+                const x = col * cellSize;
+                const y = row * cellSize;
+
+                const cell = document.createElement('div');
+                cell.className = 'intersection';
+                cell.style.left = x + 'px';
+                cell.style.top = y + 'px';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+
                 if (piece) {
-                    const x = col * cellSize;
-                    const y = row * cellSize;
-
-                    const cell = document.createElement('div');
-                    cell.className = 'intersection';
-                    cell.style.left = x + 'px';
-                    cell.style.top = y + 'px';
-                    cell.dataset.row = row;
-                    cell.dataset.col = col;
-
                     const pieceEl = document.createElement('div');
                     pieceEl.className = `piece ${piece.color}`;
                     pieceEl.textContent = piece.name;
@@ -241,9 +242,10 @@ class ChineseChessGame {
                     }
 
                     cell.appendChild(pieceEl);
-                    cell.addEventListener('click', () => this.handleCellClick(row, col));
-                    piecesLayer.appendChild(cell);
                 }
+
+                cell.addEventListener('click', () => this.handleCellClick(row, col));
+                piecesLayer.appendChild(cell);
             }
         }
 
@@ -335,7 +337,8 @@ class ChineseChessGame {
             const response = await fetch('/api/select', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ row, col })
+                body: JSON.stringify({ row, col }),
+                credentials: 'include'
             });
 
             const data = await response.json();
@@ -354,7 +357,8 @@ class ChineseChessGame {
             const response = await fetch('/api/move', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_row: fromRow, from_col: fromCol, to_row: toRow, to_col: toCol })
+                body: JSON.stringify({ from_row: fromRow, from_col: fromCol, to_row: toRow, to_col: toCol }),
+                credentials: 'include'
             });
 
             const data = await response.json();
@@ -458,7 +462,7 @@ class ChineseChessGame {
         }
 
         try {
-            const response = await fetch('/api/share');
+            const response = await fetch('/api/share', { credentials: 'include' });
             const data = await response.json();
 
             const shareUrl = document.getElementById('shareUrl');

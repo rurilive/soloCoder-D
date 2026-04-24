@@ -6,8 +6,6 @@ from app.chess.ai import Difficulty
 import uuid
 import traceback
 
-app.secret_key = 'chinese-chess-secret-key-2024'
-
 games = {}
 
 @app.errorhandler(Exception)
