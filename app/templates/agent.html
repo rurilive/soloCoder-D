@@ -578,9 +578,12 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2>客服工作台</h2>
-                <div class="status-bar">
+                <div class="status-bar" style="margin-bottom: 4px;">
                     <span class="status-dot"></span>
                     <span id="agent-status">在线</span>
+                </div>
+                <div class="status-bar" style="font-size: 12px; color: #666;">
+                    您的ID: <span id="agent-id-display" style="color: #667eea;">加载中...</span>
                 </div>
             </div>
             
@@ -617,6 +620,9 @@
                     <div class="avatar" id="visitor-avatar">👤</div>
                     <div>
                         <div class="name" id="visitor-name">访客</div>
+                        <div class="status" id="visitor-id-status" style="font-size: 12px; color: #666;">
+                            访客ID: <span id="visitor-id-display">-</span>
+                        </div>
                         <div class="status" id="visitor-status">在线</div>
                     </div>
                 </div>
@@ -681,6 +687,8 @@
         const waitingItems = document.getElementById('waiting-items');
         const conversationList = document.getElementById('conversation-list');
         const visitorName = document.getElementById('visitor-name');
+        const visitorIdDisplay = document.getElementById('visitor-id-display');
+        const agentIdDisplay = document.getElementById('agent-id-display');
         const closeBtn = document.getElementById('close-btn');
         const quickReplies = document.getElementById('quick-replies');
         
@@ -716,6 +724,10 @@
             chatInputContainer.classList.remove('hidden');
             
             visitorName.textContent = conv.visitorName || '访客';
+            if (conv.visitorId) {
+                visitorIdDisplay.textContent = conv.visitorId.substring(0, 8) + '...';
+                visitorIdDisplay.title = conv.visitorId;
+            }
             
             renderMessages(conv.messages);
             updateConversationList();
@@ -920,11 +932,12 @@
             waitingVisitors.forEach(visitor => {
                 const item = document.createElement('div');
                 item.className = 'waiting-item';
+                const shortId = visitor.visitorId ? visitor.visitorId.substring(0, 8) + '...' : '';
                 item.innerHTML = `
                     <div class="avatar">👤</div>
                     <div class="info">
                         <div class="name">${visitor.visitorName || '访客'}</div>
-                        <div class="time">等待中</div>
+                        <div class="time" style="font-size: 11px; color: #666;">ID: ${shortId}</div>
                     </div>
                     <button class="accept-btn">接入</button>
                 `;
@@ -958,10 +971,12 @@
             activeConvs.forEach(([id, conv]) => {
                 const item = document.createElement('div');
                 item.className = `conversation-item ${id === currentConversationId ? 'active' : ''}`;
+                const shortId = conv.visitorId ? conv.visitorId.substring(0, 8) + '...' : '';
                 item.innerHTML = `
                     <div class="avatar">👤</div>
                     <div class="info">
                         <div class="name">${conv.visitorName || '访客'}</div>
+                        <div class="preview" style="font-size: 11px; color: #666;">ID: ${shortId || '-'}</div>
                         <div class="preview">${conv.lastPreview || '暂无消息'}</div>
                     </div>
                     ${conv.hasUnread && id !== currentConversationId ? '<div class="unread"></div>' : ''}
@@ -980,11 +995,15 @@
             agentId = data.agent_id;
             localStorage.setItem('chat_agent_id', agentId);
             
+            agentIdDisplay.textContent = agentId.substring(0, 8) + '...';
+            agentIdDisplay.title = agentId;
+            
             if (data.active_conversations && data.active_conversations.length > 0) {
                 data.active_conversations.forEach(conv => {
                     conversations.set(conv.conversation_id, {
                         messages: [],
                         visitorName: '访客',
+                        visitorId: conv.visitor_id,
                         lastPreview: ''
                     });
                 });
@@ -1008,6 +1027,7 @@
                 conversations.set(conversationId, {
                     messages: [],
                     visitorName: '访客',
+                    visitorId: data.visitor_id,
                     lastPreview: ''
                 });
             }
@@ -1015,6 +1035,9 @@
             const conv = conversations.get(conversationId);
             if (data.messages) {
                 conv.messages = data.messages;
+            }
+            if (data.visitor_id) {
+                conv.visitorId = data.visitor_id;
             }
             
             if (currentConversationId === conversationId) {
@@ -1043,9 +1066,16 @@
                 conversations.set(data.conversation_id, {
                     messages: [],
                     visitorName: '访客',
+                    visitorId: data.visitor_id,
                     lastPreview: ''
                 });
             }
+            
+            const conv = conversations.get(data.conversation_id);
+            if (data.visitor_id) {
+                conv.visitorId = data.visitor_id;
+            }
+            
             updateConversationList();
             
             if (!currentConversationId) {

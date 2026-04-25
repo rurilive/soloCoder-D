@@ -103,7 +103,8 @@ def handle_visitor_connect(data):
         emit('agent_assigned', {
             'agent_id': agent_id,
             'agent_name': agent_name,
-            'conversation_id': conversation_id
+            'conversation_id': conversation_id,
+            'visitor_id': visitor_id
         }, room=conversation_id)
     else:
         log_debug("VISITOR", f"没有可用客服或会话不是 waiting 状态")
@@ -178,7 +179,8 @@ def handle_agent_connect(data):
         emit('agent_assigned', {
             'agent_id': agent_id,
             'agent_name': agent_name,
-            'conversation_id': conversation.conversation_id
+            'conversation_id': conversation.conversation_id,
+            'visitor_id': conversation.visitor_id
         }, room=conversation.conversation_id)
     else:
         log_debug("AGENT", "没有等待中的会话")
@@ -329,7 +331,8 @@ def handle_join_conversation(data):
                 socketio.emit('agent_assigned', {
                     'agent_id': agent_id,
                     'agent_name': agent_sessions[request.sid]['agent_name'],
-                    'conversation_id': conversation_id
+                    'conversation_id': conversation_id,
+                    'visitor_id': conversation.visitor_id
                 }, room=sid)
                 break
     else:

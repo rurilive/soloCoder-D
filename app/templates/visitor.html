@@ -375,6 +375,12 @@
                 <div class="avatar">👩‍💼</div>
                 <div>
                     <div><strong>在线客服</strong></div>
+                    <div class="status" id="visitor-id-display">
+                        您的ID: <span id="visitor-id-text">加载中...</span>
+                    </div>
+                    <div class="status" id="agent-id-display" style="display: none;">
+                        客服ID: <span id="agent-id-text">-</span>
+                    </div>
                     <div class="status">
                         <span class="chat-status-indicator status-waiting" id="status-indicator"></span>
                         <span id="status-text">等待连接...</span>
@@ -437,6 +443,9 @@
         const waitingMessage = document.getElementById('waiting-message');
         const chatInputContainer = document.getElementById('chat-input-container');
         const typingIndicator = document.getElementById('typing-indicator');
+        const visitorIdText = document.getElementById('visitor-id-text');
+        const agentIdDisplay = document.getElementById('agent-id-display');
+        const agentIdText = document.getElementById('agent-id-text');
         
         function initEmojiPicker() {
             emojiGrid.innerHTML = '';
@@ -609,6 +618,9 @@
             localStorage.setItem('chat_visitor_id', visitorId);
             isConnected = true;
             
+            visitorIdText.textContent = visitorId.substring(0, 8) + '...';
+            visitorIdText.title = visitorId;
+            
             statusIndicator.className = 'chat-status-indicator status-waiting';
             statusText.textContent = '等待客服接入...';
             
@@ -617,6 +629,13 @@
         
         socket.on('agent_assigned', (data) => {
             agentAssigned = true;
+            
+            if (data.agent_id) {
+                agentIdText.textContent = data.agent_id.substring(0, 8) + '...';
+                agentIdText.title = data.agent_id;
+                agentIdDisplay.style.display = 'block';
+            }
+            
             statusIndicator.className = 'chat-status-indicator status-online';
             statusText.textContent = '客服已接入';
             waitingMessage.classList.add('hidden');
