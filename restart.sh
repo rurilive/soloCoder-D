@@ -22,9 +22,11 @@ echo "[3/6] 清理旧数据（可选）..."
 echo "是否清理数据库和上传文件？"
 echo "  y - 清理所有数据（重新开始）"
 echo "  n - 保留数据"
-read -p "请选择 (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
+echo ""
+echo "请输入选择 (y/n)，然后按回车："
+read REPLY
+
+if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
     echo "正在清理..."
     rm -f app/chat_system.db
     rm -rf app/uploads
