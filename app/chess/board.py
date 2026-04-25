@@ -394,12 +394,28 @@ class Board:
         return len(self.get_all_valid_moves(color)) == 0
 
     def copy(self) -> 'Board':
-        new_board = Board()
+        new_board = Board.__new__(Board)
         new_board.grid = [[None for _ in range(self.COLS)] for _ in range(self.ROWS)]
+        new_board.move_history = []
+        new_board._red_pieces = []
+        new_board._black_pieces = []
+        new_board._red_general_pos = None
+        new_board._black_general_pos = None
+
         for row in range(self.ROWS):
             for col in range(self.COLS):
                 piece = self.get_piece(row, col)
                 if piece:
-                    new_board.grid[row][col] = Piece(piece.color, piece.piece_type, row, col)
-        new_board.move_history = []
+                    new_piece = Piece(piece.color, piece.piece_type, row, col)
+                    new_board.grid[row][col] = new_piece
+                    if new_piece.color == Color.RED:
+                        new_board._red_pieces.append(new_piece)
+                    else:
+                        new_board._black_pieces.append(new_piece)
+                    if new_piece.piece_type == PieceType.GENERAL:
+                        if new_piece.color == Color.RED:
+                            new_board._red_general_pos = (row, col)
+                        else:
+                            new_board._black_general_pos = (row, col)
+
         return new_board
