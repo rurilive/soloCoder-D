@@ -703,6 +703,8 @@
         }
         
         function selectConversation(conversationId) {
+            if (currentConversationId === conversationId) return;
+            
             currentConversationId = conversationId;
             const conv = conversations.get(conversationId);
             
@@ -1015,10 +1017,11 @@
                 conv.messages = data.messages;
             }
             
-            selectConversation(conversationId);
-            updateConversationList();
+            if (currentConversationId === conversationId) {
+                renderMessages(conv.messages);
+            }
             
-            socket.emit('update_waiting_list', {});
+            updateConversationList();
         });
         
         socket.on('update_waiting_list', (data) => {
@@ -1044,6 +1047,10 @@
                 });
             }
             updateConversationList();
+            
+            if (!currentConversationId) {
+                selectConversation(data.conversation_id);
+            }
         });
         
         sendBtn.onclick = sendMessage;

@@ -59,6 +59,7 @@ def handle_visitor_connect(data):
                 break
         
         if agent_sid:
+            socketio.server.enter_room(agent_sid, conversation.conversation_id)
             socketio.emit('new_conversation', {
                 'conversation_id': conversation.conversation_id,
                 'visitor_id': visitor_id,
@@ -110,14 +111,13 @@ def handle_agent_connect(data):
         conversation = waiting[0]
         conversation.assign_agent(agent_id)
         
-        for sid, data in visitor_sessions.items():
-            if data.get('conversation_id') == conversation.conversation_id:
-                socketio.emit('agent_assigned', {
-                    'agent_id': agent_id,
-                    'agent_name': agent_name,
-                    'conversation_id': conversation.conversation_id
-                }, room=sid)
-                break
+        join_room(conversation.conversation_id)
+        
+        emit('agent_assigned', {
+            'agent_id': agent_id,
+            'agent_name': agent_name,
+            'conversation_id': conversation.conversation_id
+        }, room=conversation.conversation_id)
     
     emit('update_waiting_list', {
         'count': len(Conversation.get_waiting())
