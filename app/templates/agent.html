@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服系统 - 管理端</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .agent-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 18px;
+            color: #1a202c;
+            margin-bottom: 8px;
+        }
+        
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4ade80;
+        }
+        
+        .waiting-list {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .waiting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .waiting-count {
+            background-color: #fbbf24;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        
+        .waiting-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background-color: #fef9e7;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .waiting-item:hover {
+            background-color: #fef3c7;
+        }
+        
+        .waiting-item .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .waiting-item .info {
+            flex: 1;
+        }
+        
+        .waiting-item .name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .waiting-item .time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .waiting-item .accept-btn {
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .waiting-item .accept-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .active-conversations {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        
+        .active-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-bottom: 4px;
+        }
+        
+        .conversation-item:hover {
+            background-color: #f7fafc;
+        }
+        
+        .conversation-item.active {
+            background-color: #e6fffa;
+            border: 1px solid #38b2ac;
+        }
+        
+        .conversation-item .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .conversation-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .conversation-item .name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 2px;
+        }
+        
+        .conversation-item .preview {
+            font-size: 12px;
+            color: #999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .conversation-item .unread {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ef4444;
+        }
+        
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+        
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-header .visitor-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .chat-header .avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background-color: #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .chat-header .name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        
+        .chat-header .status {
+            font-size: 13px;
+            color: #4ade80;
+        }
+        
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            background-color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .action-btn:hover {
+            background-color: #f7fafc;
+        }
+        
+        .action-btn.danger {
+            color: #ef4444;
+            border-color: #fecaca;
+        }
+        
+        .action-btn.danger:hover {
+            background-color: #fef2f2;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .message.agent {
+            flex-direction: row-reverse;
+        }
+        
+        .message .avatar-small {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .message.visitor .avatar-small {
+            background-color: #667eea;
+            color: white;
+        }
+        
+        .message.agent .avatar-small {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message-content {
+            max-width: 60%;
+        }
+        
+        .message-bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .message.agent .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.visitor .message-bubble {
+            background-color: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .message.agent .message-time {
+            text-align: right;
+        }
+        
+        .message-file {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background-color: #f0f4ff;
+            border-radius: 8px;
+            cursor: pointer;
+            min-width: 200px;
+        }
+        
+        .message-file:hover {
+            background-color: #e0e8ff;
+        }
+        
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #3b82f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 2px;
+        }
+        
+        .file-size {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .message-emoji {
+            font-size: 32px;
+            padding: 5px;
+        }
+        
+        .chat-input-container {
+            padding: 16px 20px;
+            background-color: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .chat-tools {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: background-color 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .emoji-picker {
+            display: none;
+            position: absolute;
+            bottom: 120px;
+            left: 20px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+        }
+        
+        .emoji-picker.show {
+            display: block;
+        }
+        
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+        }
+        
+        .emoji-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .emoji-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .chat-input-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            line-height: 1.4;
+        }
+        
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            padding: 12px 24px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+        }
+        
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state .text {
+            font-size: 16px;
+        }
+        
+        .system-message {
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .quick-replies {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .quick-reply {
+            padding: 6px 12px;
+            background-color: #f0f4ff;
+            border: 1px solid #dbeafe;
+            border-radius: 16px;
+            font-size: 13px;
+            color: #3b82f6;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .quick-reply:hover {
+            background-color: #dbeafe;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="agent-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>客服工作台</h2>
+                <div class="status-bar">
+                    <span class="status-dot"></span>
+                    <span id="agent-status">在线</span>
+                </div>
+            </div>
+            
+            <div class="waiting-list" id="waiting-list">
+                <div class="waiting-header">
+                    <span>等待接入</span>
+                    <span class="waiting-count" id="waiting-count">0</span>
+                </div>
+                <div id="waiting-items">
+                    <div style="text-align: center; color: #999; font-size: 13px; padding: 20px;">
+                        暂无等待中的访客
+                    </div>
+                </div>
+            </div>
+            
+            <div class="active-conversations">
+                <div class="active-header">当前对话</div>
+                <div id="conversation-list">
+                    <div style="text-align: center; color: #999; font-size: 13px; padding: 20px;">
+                        暂无活跃对话
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-area" id="main-area">
+            <div class="empty-state" id="empty-state">
+                <div class="icon">💬</div>
+                <div class="text">选择或接入一个对话开始</div>
+            </div>
+            
+            <div class="chat-header hidden" id="chat-header">
+                <div class="visitor-info">
+                    <div class="avatar" id="visitor-avatar">👤</div>
+                    <div>
+                        <div class="name" id="visitor-name">访客</div>
+                        <div class="status" id="visitor-status">在线</div>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" id="transfer-btn">转移</button>
+                    <button class="action-btn danger" id="close-btn">结束对话</button>
+                </div>
+            </div>
+            
+            <div class="chat-messages hidden" id="chat-messages">
+            </div>
+            
+            <div class="chat-input-container hidden" id="chat-input-container">
+                <div class="quick-replies" id="quick-replies">
+                    <span class="quick-reply" data-text="您好，有什么可以帮您的吗？">你好</span>
+                    <span class="quick-reply" data-text="请您稍等，我查询一下">请稍等</span>
+                    <span class="quick-reply" data-text="感谢您的咨询，祝您生活愉快！">感谢咨询</span>
+                </div>
+                
+                <div class="emoji-picker" id="emoji-picker">
+                    <div class="emoji-grid" id="emoji-grid"></div>
+                </div>
+                
+                <div class="chat-tools">
+                    <button class="tool-btn" id="emoji-btn" title="表情">😊</button>
+                    <button class="tool-btn" id="file-btn" title="文件">📎</button>
+                </div>
+                
+                <div class="chat-input-row">
+                    <textarea class="chat-input" id="message-input" placeholder="输入消息..." rows="1"></textarea>
+                    <button class="send-btn" id="send-btn">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="file-input">
+
+    <script>
+        const socket = io();
+        
+        let agentId = localStorage.getItem('chat_agent_id');
+        let currentConversationId = null;
+        const conversations = new Map();
+        const waitingVisitors = [];
+        
+        const emojis = ['😀', '😂', '🥰', '😎', '🤔', '👍', '👎', '❤️',
+                        '🔥', '🎉', '😢', '😡', '🙏', '👋', '✨', '💯'];
+        
+        const emptyState = document.getElementById('empty-state');
+        const chatHeader = document.getElementById('chat-header');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInputContainer = document.getElementById('chat-input-container');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const emojiBtn = document.getElementById('emoji-btn');
+        const fileBtn = document.getElementById('file-btn');
+        const fileInput = document.getElementById('file-input');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const emojiGrid = document.getElementById('emoji-grid');
+        const waitingCount = document.getElementById('waiting-count');
+        const waitingItems = document.getElementById('waiting-items');
+        const conversationList = document.getElementById('conversation-list');
+        const visitorName = document.getElementById('visitor-name');
+        const closeBtn = document.getElementById('close-btn');
+        const quickReplies = document.getElementById('quick-replies');
+        
+        function initEmojiPicker() {
+            emojiGrid.innerHTML = '';
+            emojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-btn';
+                btn.textContent = emoji;
+                btn.onclick = () => sendEmoji(emoji);
+                emojiGrid.appendChild(btn);
+            });
+        }
+        
+        function connect() {
+            socket.emit('agent_connect', {
+                agent_id: agentId,
+                agent_name: '客服'
+            });
+        }
+        
+        function selectConversation(conversationId) {
+            currentConversationId = conversationId;
+            const conv = conversations.get(conversationId);
+            
+            if (!conv) return;
+            
+            emptyState.classList.add('hidden');
+            chatHeader.classList.remove('hidden');
+            chatMessages.classList.remove('hidden');
+            chatInputContainer.classList.remove('hidden');
+            
+            visitorName.textContent = conv.visitorName || '访客';
+            
+            renderMessages(conv.messages);
+            updateConversationList();
+            
+            socket.emit('join_conversation', { conversation_id: conversationId });
+        }
+        
+        function renderMessages(messages) {
+            chatMessages.innerHTML = '';
+            messages.forEach(msg => addMessage(msg, false));
+            scrollToBottom();
+        }
+        
+        function addMessage(data, scroll = true) {
+            const conversationId = data.conversation_id;
+            
+            if (!conversations.has(conversationId)) {
+                conversations.set(conversationId, {
+                    messages: [],
+                    visitorName: '访客'
+                });
+            }
+            
+            const conv = conversations.get(conversationId);
+            conv.messages.push(data);
+            
+            if (data.sender_type === 'visitor') {
+                conv.lastPreview = data.message_type === 'emoji' ? '[表情]' : 
+                                   data.message_type === 'file' ? '[文件]' : data.content;
+            }
+            
+            if (conversationId === currentConversationId) {
+                const message = document.createElement('div');
+                message.className = `message ${data.sender_type}`;
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar-small';
+                avatar.textContent = data.sender_type === 'agent' ? '客' : '访';
+                
+                const content = document.createElement('div');
+                content.className = 'message-content';
+                
+                const bubble = document.createElement('div');
+                
+                if (data.message_type === 'emoji') {
+                    bubble.className = 'message-emoji';
+                    bubble.textContent = data.content;
+                } else if (data.message_type === 'file') {
+                    bubble.className = 'message-file';
+                    bubble.onclick = () => window.open(data.content, '_blank');
+                    
+                    const fileIcon = document.createElement('div');
+                    fileIcon.className = 'file-icon';
+                    fileIcon.textContent = getFileIcon(data.file_name);
+                    
+                    const fileInfo = document.createElement('div');
+                    fileInfo.className = 'file-info';
+                    
+                    const fileName = document.createElement('div');
+                    fileName.className = 'file-name';
+                    fileName.textContent = data.file_name;
+                    
+                    const fileSize = document.createElement('div');
+                    fileSize.className = 'file-size';
+                    fileSize.textContent = formatFileSize(data.file_size);
+                    
+                    fileInfo.appendChild(fileName);
+                    fileInfo.appendChild(fileSize);
+                    bubble.appendChild(fileIcon);
+                    bubble.appendChild(fileInfo);
+                } else {
+                    bubble.className = 'message-bubble';
+                    bubble.textContent = data.content;
+                }
+                
+                const time = document.createElement('div');
+                time.className = 'message-time';
+                time.textContent = formatTime(data.created_at);
+                
+                content.appendChild(bubble);
+                content.appendChild(time);
+                
+                message.appendChild(avatar);
+                message.appendChild(content);
+                
+                chatMessages.appendChild(message);
+                
+                if (scroll) {
+                    scrollToBottom();
+                }
+            } else if (data.sender_type === 'visitor') {
+                conv.hasUnread = true;
+            }
+            
+            updateConversationList();
+        }
+        
+        function addSystemMessage(text) {
+            const message = document.createElement('div');
+            message.className = 'system-message';
+            message.textContent = text;
+            chatMessages.appendChild(message);
+            scrollToBottom();
+        }
+        
+        function getFileIcon(filename) {
+            if (!filename) return '📎';
+            const ext = filename.split('.').pop().toLowerCase();
+            if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) return '🖼️';
+            if (['pdf'].includes(ext)) return '📄';
+            if (['doc', 'docx'].includes(ext)) return '📝';
+            if (['xls', 'xlsx'].includes(ext)) return '📊';
+            return '📎';
+        }
+        
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function autoResize() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+        }
+        
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !currentConversationId) return;
+            
+            socket.emit('send_message', {
+                conversation_id: currentConversationId,
+                content: text,
+                message_type: 'text'
+            });
+            
+            messageInput.value = '';
+            autoResize();
+        }
+        
+        function sendEmoji(emoji) {
+            if (!currentConversationId) return;
+            
+            socket.emit('send_message', {
+                conversation_id: currentConversationId,
+                content: emoji,
+                message_type: 'emoji'
+            });
+            
+            emojiPicker.classList.remove('show');
+        }
+        
+        function sendFile(file) {
+            if (!currentConversationId) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    socket.emit('send_message', {
+                        conversation_id: currentConversationId,
+                        content: data.file_path,
+                        message_type: 'file',
+                        file_name: data.file_name,
+                        file_path: data.file_path,
+                        file_size: data.file_size
+                    });
+                }
+            });
+        }
+        
+        function updateWaitingList() {
+            waitingCount.textContent = waitingVisitors.length;
+            
+            if (waitingVisitors.length === 0) {
+                waitingItems.innerHTML = `
+                    <div style="text-align: center; color: #999; font-size: 13px; padding: 20px;">
+                        暂无等待中的访客
+                    </div>
+                `;
+                return;
+            }
+            
+            waitingItems.innerHTML = '';
+            waitingVisitors.forEach(visitor => {
+                const item = document.createElement('div');
+                item.className = 'waiting-item';
+                item.innerHTML = `
+                    <div class="avatar">👤</div>
+                    <div class="info">
+                        <div class="name">${visitor.visitorName || '访客'}</div>
+                        <div class="time">等待中</div>
+                    </div>
+                    <button class="accept-btn">接入</button>
+                `;
+                
+                item.querySelector('.accept-btn').onclick = () => {
+                    socket.emit('join_conversation', { conversation_id: visitor.conversationId });
+                    const index = waitingVisitors.findIndex(v => v.conversationId === visitor.conversationId);
+                    if (index > -1) {
+                        waitingVisitors.splice(index, 1);
+                    }
+                    updateWaitingList();
+                };
+                
+                waitingItems.appendChild(item);
+            });
+        }
+        
+        function updateConversationList() {
+            const activeConvs = Array.from(conversations.entries());
+            
+            if (activeConvs.length === 0) {
+                conversationList.innerHTML = `
+                    <div style="text-align: center; color: #999; font-size: 13px; padding: 20px;">
+                        暂无活跃对话
+                    </div>
+                `;
+                return;
+            }
+            
+            conversationList.innerHTML = '';
+            activeConvs.forEach(([id, conv]) => {
+                const item = document.createElement('div');
+                item.className = `conversation-item ${id === currentConversationId ? 'active' : ''}`;
+                item.innerHTML = `
+                    <div class="avatar">👤</div>
+                    <div class="info">
+                        <div class="name">${conv.visitorName || '访客'}</div>
+                        <div class="preview">${conv.lastPreview || '暂无消息'}</div>
+                    </div>
+                    ${conv.hasUnread && id !== currentConversationId ? '<div class="unread"></div>' : ''}
+                `;
+                
+                item.onclick = () => {
+                    conv.hasUnread = false;
+                    selectConversation(id);
+                };
+                
+                conversationList.appendChild(item);
+            });
+        }
+        
+        socket.on('agent_connected', (data) => {
+            agentId = data.agent_id;
+            localStorage.setItem('chat_agent_id', agentId);
+            
+            if (data.active_conversations && data.active_conversations.length > 0) {
+                data.active_conversations.forEach(conv => {
+                    conversations.set(conv.conversation_id, {
+                        messages: [],
+                        visitorName: '访客',
+                        lastPreview: ''
+                    });
+                });
+                updateConversationList();
+            }
+        });
+        
+        socket.on('new_conversation', (data) => {
+            waitingVisitors.push({
+                conversationId: data.conversation_id,
+                visitorId: data.visitor_id,
+                visitorName: data.visitor_name
+            });
+            updateWaitingList();
+        });
+        
+        socket.on('conversation_joined', (data) => {
+            const conversationId = data.conversation_id;
+            
+            if (!conversations.has(conversationId)) {
+                conversations.set(conversationId, {
+                    messages: [],
+                    visitorName: '访客',
+                    lastPreview: ''
+                });
+            }
+            
+            const conv = conversations.get(conversationId);
+            if (data.messages) {
+                conv.messages = data.messages;
+            }
+            
+            selectConversation(conversationId);
+            updateConversationList();
+            
+            socket.emit('update_waiting_list', {});
+        });
+        
+        socket.on('update_waiting_list', (data) => {
+            waitingCount.textContent = data.count || 0;
+        });
+        
+        socket.on('history_messages', (data) => {
+            if (data.conversation_id === currentConversationId) {
+                renderMessages(data.messages);
+            }
+        });
+        
+        socket.on('new_message', (data) => {
+            addMessage(data);
+        });
+        
+        socket.on('agent_assigned', (data) => {
+            if (!conversations.has(data.conversation_id)) {
+                conversations.set(data.conversation_id, {
+                    messages: [],
+                    visitorName: '访客',
+                    lastPreview: ''
+                });
+            }
+            updateConversationList();
+        });
+        
+        sendBtn.onclick = sendMessage;
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        messageInput.addEventListener('input', autoResize);
+        
+        emojiBtn.onclick = (e) => {
+            e.stopPropagation();
+            emojiPicker.classList.toggle('show');
+        };
+        
+        fileBtn.onclick = () => {
+            fileInput.click();
+        };
+        
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                sendFile(file);
+            }
+            fileInput.value = '';
+        };
+        
+        quickReplies.addEventListener('click', (e) => {
+            if (e.target.classList.contains('quick-reply')) {
+                const text = e.target.dataset.text;
+                messageInput.value = text;
+                autoResize();
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.classList.remove('show');
+            }
+        });
+        
+        initEmojiPicker();
+        connect();
+    </script>
+</body>
+</html>

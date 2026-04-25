@@ -1,135 +1,70 @@
-from flask import render_template, request, jsonify, redirect, url_for, session
+from flask import render_template, request, jsonify, send_from_directory
 from app import app
-from app.chess.game import Game
-from app.chess.pieces import Color
-from app.chess.ai import Difficulty
+import os
 import uuid
-import traceback
+from werkzeug.utils import secure_filename
 
-games = {}
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@app.errorhandler(Exception)
-def handle_exception(e):
-    app.logger.error(f"Unhandled exception: {e}")
-    app.logger.error(traceback.format_exc())
-    if request.path.startswith('/api/'):
-        return jsonify({'error': str(e), 'success': False}), 500
-    return render_template('index.html'), 500
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
 
-def get_or_create_game() -> Game:
-    game_id = session.get('game_id')
-    if game_id is None or game_id not in games:
-        game_id = str(uuid.uuid4())
-        session['game_id'] = game_id
-        games[game_id] = Game()
-    return games[game_id]
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('visitor.html')
 
-@app.route('/game')
-def game():
-    return render_template('game.html')
+@app.route('/agent')
+def agent():
+    return render_template('agent.html')
 
-@app.route('/api/start', methods=['POST'])
-def start_game():
-    data = request.get_json()
-    player_color_str = data.get('player_color', 'red')
-    difficulty_str = data.get('difficulty', 'medium')
+@app.route('/embed.js')
+def embed_script():
+    return app.send_static_file('js/embed.js')
 
-    player_color = Color(player_color_str)
-    difficulty = Difficulty(difficulty_str)
+@app.route('/chat')
+def chat_demo():
+    return render_template('visitor.html')
 
-    game = get_or_create_game()
-    game.start_game(player_color, difficulty)
-
-    return jsonify(game.get_game_state())
-
-@app.route('/api/state')
-def get_state():
-    game = get_or_create_game()
-    return jsonify(game.get_game_state())
-
-@app.route('/api/select', methods=['POST'])
-def select_piece():
-    data = request.get_json()
-    row = data.get('row')
-    col = data.get('col')
-
-    game = get_or_create_game()
-    success = game.select_piece(row, col)
-
-    return jsonify({
-        'success': success,
-        'state': game.get_game_state()
-    })
-
-@app.route('/api/move', methods=['POST'])
-def make_move():
-    data = request.get_json()
-    from_row = data.get('from_row')
-    from_col = data.get('from_col')
-    to_row = data.get('to_row')
-    to_col = data.get('to_col')
-
-    game = get_or_create_game()
-    success = game.make_move(from_row, from_col, to_row, to_col)
-
-    return jsonify({
-        'success': success,
-        'state': game.get_game_state()
-    })
-
-@app.route('/api/share')
-def share_game():
-    game = get_or_create_game()
-    share_code = game.get_share_code()
-    share_url = url_for('replay', share_code=share_code, _external=True)
-    return jsonify({
-        'share_code': share_code,
-        'share_url': share_url
-    })
-
-@app.route('/replay/<share_code>')
-def replay(share_code):
-    game = get_or_create_game()
-    replay_steps = game.load_replay(share_code)
-
-    if not replay_steps:
-        return redirect(url_for('index'))
-
-    return render_template('replay.html', replay_steps=replay_steps, share_code=share_code)
-
-@app.route('/api/replay/<share_code>')
-def get_replay_data(share_code):
-    game = get_or_create_game()
-    replay_steps = game.load_replay(share_code)
-
-    if not replay_steps:
-        return jsonify({'error': 'Invalid share code'}), 400
-
-    steps_data = []
-    for step_name, board_state in replay_steps:
-        steps_data.append({
-            'name': step_name,
-            'board': board_state['board'],
-            'last_move': board_state.get('last_move')
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    if file and allowed_file(file.filename):
+        original_filename = secure_filename(file.filename)
+        file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else ''
+        new_filename = f"{uuid.uuid4()}.{file_ext}" if file_ext else str(uuid.uuid4())
+        
+        file_path = os.path.join(UPLOAD_FOLDER, new_filename)
+        file.save(file_path)
+        
+        file_size = os.path.getsize(file_path)
+        
+        return jsonify({
+            'success': True,
+            'file_name': original_filename,
+            'file_path': f'/uploads/{new_filename}',
+            'file_size': file_size
         })
+    
+    return jsonify({'error': 'File type not allowed'}), 400
 
-    return jsonify({'steps': steps_data})
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
-@app.route('/api/continue', methods=['POST'])
-def continue_game():
-    data = request.get_json()
-    share_code = data.get('share_code')
-
-    game = Game.from_share_code(share_code)
-    if game is None:
-        return jsonify({'error': 'Invalid share code'}), 400
-
-    game_id = str(uuid.uuid4())
-    session['game_id'] = game_id
-    games[game_id] = game
-
-    return jsonify(game.get_game_state())
+@app.route('/api/emojis')
+def get_emojis():
+    emojis = [
+        '😀', '😂', '🥰', '😎', '🤔', '👍', '👎', '❤️',
+        '🔥', '🎉', '😢', '😡', '🙏', '👋', '✨', '💯'
+    ]
+    return jsonify({'emojis': emojis})

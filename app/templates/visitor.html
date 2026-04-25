@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线客服</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-header .title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-header .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .chat-header .status {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        .chat-status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-online {
+            background-color: #4ade80;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-waiting {
+            background-color: #fbbf24;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .message.visitor {
+            flex-direction: row-reverse;
+        }
+        
+        .message .avatar-small {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .message.visitor .avatar-small {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message.agent .avatar-small {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .message-content {
+            max-width: 260px;
+        }
+        
+        .message-bubble {
+            padding: 10px 14px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .message.visitor .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.agent .message-bubble {
+            background-color: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+        
+        .message.visitor .message-time {
+            text-align: right;
+        }
+        
+        .message-file {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background-color: #f0f4ff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .message-file:hover {
+            background-color: #e0e8ff;
+        }
+        
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #3b82f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 2px;
+        }
+        
+        .file-size {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .message-emoji {
+            font-size: 32px;
+            padding: 5px;
+        }
+        
+        .chat-input-container {
+            padding: 12px;
+            background-color: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .chat-tools {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .tool-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: background-color 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .emoji-picker {
+            display: none;
+            position: absolute;
+            bottom: 120px;
+            left: 12px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+        }
+        
+        .emoji-picker.show {
+            display: block;
+        }
+        
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+        }
+        
+        .emoji-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .emoji-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            max-height: 80px;
+            line-height: 1.4;
+        }
+        
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            padding: 10px 20px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: none;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .typing-indicator.show {
+            display: block;
+        }
+        
+        .waiting-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .waiting-message .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .system-message {
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="title">
+                <div class="avatar">👩‍💼</div>
+                <div>
+                    <div><strong>在线客服</strong></div>
+                    <div class="status">
+                        <span class="chat-status-indicator status-waiting" id="status-indicator"></span>
+                        <span id="status-text">等待连接...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <div class="waiting-message" id="waiting-message">
+                <div class="spinner"></div>
+                <div>正在为您分配客服，请稍候...</div>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typing-indicator">
+            客服正在输入...
+        </div>
+        
+        <div class="chat-input-container" id="chat-input-container">
+            <div class="emoji-picker" id="emoji-picker">
+                <div class="emoji-grid" id="emoji-grid"></div>
+            </div>
+            
+            <div class="chat-tools">
+                <button class="tool-btn" id="emoji-btn" title="表情">😊</button>
+                <button class="tool-btn" id="file-btn" title="文件">📎</button>
+            </div>
+            
+            <div class="chat-input-row">
+                <textarea class="chat-input" id="message-input" placeholder="输入消息..." rows="1"></textarea>
+                <button class="send-btn" id="send-btn">发送</button>
+            </div>
+        </div>
+    </div>
+    
+    <input type="file" id="file-input">
+
+    <script>
+        const socket = io();
+        
+        let visitorId = localStorage.getItem('chat_visitor_id');
+        let conversationId = null;
+        let isConnected = false;
+        let agentAssigned = false;
+        
+        const emojis = ['😀', '😂', '🥰', '😎', '🤔', '👍', '👎', '❤️',
+                        '🔥', '🎉', '😢', '😡', '🙏', '👋', '✨', '💯'];
+        
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const emojiBtn = document.getElementById('emoji-btn');
+        const fileBtn = document.getElementById('file-btn');
+        const fileInput = document.getElementById('file-input');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const emojiGrid = document.getElementById('emoji-grid');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const waitingMessage = document.getElementById('waiting-message');
+        const chatInputContainer = document.getElementById('chat-input-container');
+        const typingIndicator = document.getElementById('typing-indicator');
+        
+        function initEmojiPicker() {
+            emojiGrid.innerHTML = '';
+            emojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'emoji-btn';
+                btn.textContent = emoji;
+                btn.onclick = () => sendEmoji(emoji);
+                emojiGrid.appendChild(btn);
+            });
+        }
+        
+        function connect() {
+            socket.emit('visitor_connect', {
+                visitor_id: visitorId,
+                visitor_name: '访客'
+            });
+        }
+        
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !conversationId) return;
+            
+            socket.emit('send_message', {
+                conversation_id: conversationId,
+                content: text,
+                message_type: 'text'
+            });
+            
+            messageInput.value = '';
+            autoResize();
+        }
+        
+        function sendEmoji(emoji) {
+            if (!conversationId) return;
+            
+            socket.emit('send_message', {
+                conversation_id: conversationId,
+                content: emoji,
+                message_type: 'emoji'
+            });
+            
+            emojiPicker.classList.remove('show');
+        }
+        
+        function sendFile(file) {
+            if (!conversationId) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    socket.emit('send_message', {
+                        conversation_id: conversationId,
+                        content: data.file_path,
+                        message_type: 'file',
+                        file_name: data.file_name,
+                        file_path: data.file_path,
+                        file_size: data.file_size
+                    });
+                }
+            });
+        }
+        
+        function addMessage(data) {
+            const message = document.createElement('div');
+            message.className = `message ${data.sender_type}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar-small';
+            avatar.textContent = data.sender_type === 'visitor' ? '我' : '客';
+            
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            
+            const bubble = document.createElement('div');
+            
+            if (data.message_type === 'emoji') {
+                bubble.className = 'message-emoji';
+                bubble.textContent = data.content;
+            } else if (data.message_type === 'file') {
+                bubble.className = 'message-file';
+                bubble.onclick = () => window.open(data.content, '_blank');
+                
+                const fileIcon = document.createElement('div');
+                fileIcon.className = 'file-icon';
+                fileIcon.textContent = getFileIcon(data.file_name);
+                
+                const fileInfo = document.createElement('div');
+                fileInfo.className = 'file-info';
+                
+                const fileName = document.createElement('div');
+                fileName.className = 'file-name';
+                fileName.textContent = data.file_name;
+                
+                const fileSize = document.createElement('div');
+                fileSize.className = 'file-size';
+                fileSize.textContent = formatFileSize(data.file_size);
+                
+                fileInfo.appendChild(fileName);
+                fileInfo.appendChild(fileSize);
+                bubble.appendChild(fileIcon);
+                bubble.appendChild(fileInfo);
+            } else {
+                bubble.className = 'message-bubble';
+                bubble.textContent = data.content;
+            }
+            
+            const time = document.createElement('div');
+            time.className = 'message-time';
+            time.textContent = formatTime(data.created_at);
+            
+            content.appendChild(bubble);
+            content.appendChild(time);
+            
+            message.appendChild(avatar);
+            message.appendChild(content);
+            
+            chatMessages.appendChild(message);
+            scrollToBottom();
+        }
+        
+        function addSystemMessage(text) {
+            const message = document.createElement('div');
+            message.className = 'system-message';
+            message.textContent = text;
+            chatMessages.appendChild(message);
+            scrollToBottom();
+        }
+        
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) return '🖼️';
+            if (['pdf'].includes(ext)) return '📄';
+            if (['doc', 'docx'].includes(ext)) return '📝';
+            if (['xls', 'xlsx'].includes(ext)) return '📊';
+            return '📎';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function autoResize() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 80) + 'px';
+        }
+        
+        socket.on('visitor_connected', (data) => {
+            visitorId = data.visitor_id;
+            conversationId = data.conversation_id;
+            localStorage.setItem('chat_visitor_id', visitorId);
+            isConnected = true;
+            
+            statusIndicator.className = 'chat-status-indicator status-waiting';
+            statusText.textContent = '等待客服接入...';
+            
+            socket.emit('get_history', { conversation_id: conversationId });
+        });
+        
+        socket.on('agent_assigned', (data) => {
+            agentAssigned = true;
+            statusIndicator.className = 'chat-status-indicator status-online';
+            statusText.textContent = '客服已接入';
+            waitingMessage.classList.add('hidden');
+            addSystemMessage('客服已接入，您可以开始咨询了');
+        });
+        
+        socket.on('history_messages', (data) => {
+            if (data.messages && data.messages.length > 0) {
+                waitingMessage.classList.add('hidden');
+                data.messages.forEach(msg => addMessage(msg));
+            }
+        });
+        
+        socket.on('new_message', (data) => {
+            if (data.sender_type === 'agent') {
+                typingIndicator.classList.remove('show');
+            }
+            addMessage(data);
+        });
+        
+        sendBtn.onclick = sendMessage;
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        messageInput.addEventListener('input', autoResize);
+        
+        emojiBtn.onclick = (e) => {
+            e.stopPropagation();
+            emojiPicker.classList.toggle('show');
+        };
+        
+        fileBtn.onclick = () => {
+            fileInput.click();
+        };
+        
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                sendFile(file);
+            }
+            fileInput.value = '';
+        };
+        
+        document.addEventListener('click', (e) => {
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.classList.remove('show');
+            }
+        });
+        
+        initEmojiPicker();
+        connect();
+    </script>
+</body>
+</html>
