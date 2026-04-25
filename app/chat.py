@@ -14,9 +14,9 @@ EMOJIS = [
 
 def get_available_agent():
     if agent_sessions:
-        for agent_id, session_data in agent_sessions.items():
-            return agent_id
-    return None
+        for sid, session_data in agent_sessions.items():
+            return sid, session_data.get('agent_id')
+    return None, None
 
 @socketio.on('visitor_connect')
 def handle_visitor_connect(data):
@@ -48,15 +48,11 @@ def handle_visitor_connect(data):
         'status': conversation.status
     })
     
-    available_agent = get_available_agent()
-    if available_agent and conversation.status == 'waiting':
-        conversation.assign_agent(available_agent)
+    agent_sid, agent_id = get_available_agent()
+    if agent_id and conversation.status == 'waiting':
+        conversation.assign_agent(agent_id)
         
-        agent_sid = None
-        for sid, data in agent_sessions.items():
-            if data.get('agent_id') == available_agent:
-                agent_sid = sid
-                break
+        agent_name = agent_sessions.get(agent_sid, {}).get('agent_name', '客服')
         
         if agent_sid:
             socketio.server.enter_room(agent_sid, conversation.conversation_id)
@@ -67,7 +63,8 @@ def handle_visitor_connect(data):
             }, room=agent_sid)
         
         emit('agent_assigned', {
-            'agent_id': available_agent,
+            'agent_id': agent_id,
+            'agent_name': agent_name,
             'conversation_id': conversation.conversation_id
         }, room=conversation.conversation_id)
     
