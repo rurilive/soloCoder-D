@@ -1012,6 +1012,17 @@
         });
         
         socket.on('new_conversation', (data) => {
+            const existingIndex = waitingVisitors.findIndex(v => v.conversationId === data.conversation_id);
+            if (existingIndex > -1) {
+                console.log('会话已存在，跳过重复添加:', data.conversation_id);
+                return;
+            }
+            
+            if (conversations.has(data.conversation_id)) {
+                console.log('会话已被其他客服接手，跳过:', data.conversation_id);
+                return;
+            }
+            
             waitingVisitors.push({
                 conversationId: data.conversation_id,
                 visitorId: data.visitor_id,

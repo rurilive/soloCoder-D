@@ -45,9 +45,11 @@ def handle_visitor_connect(data):
     log_debug("VISITOR", f"更新 visitor_sessions: {visitor_sessions}")
     
     conversation = Conversation.get_by_visitor(visitor_id)
+    is_new_conversation = False
     if not conversation:
         log_debug("VISITOR", "没有找到活跃会话，创建新会话")
         conversation = Conversation.create(visitor_id)
+        is_new_conversation = True
     else:
         log_debug("VISITOR", f"找到现有会话: conversation_id={conversation.conversation_id}, status={conversation.status}")
     
@@ -63,19 +65,20 @@ def handle_visitor_connect(data):
         'status': conversation.status
     })
     
-    log_debug("VISITOR", "访客进入等待队列，等待客服主动接入")
-    
-    if agent_sessions:
-        log_debug("VISITOR", f"通知所有在线客服有新访客等待: visitor_id={visitor_id}")
-        for sid in agent_sessions.keys():
-            socketio.emit('new_conversation', {
-                'conversation_id': conversation_id,
-                'visitor_id': visitor_id,
-                'visitor_name': visitor_name
-            }, room=sid)
-            socketio.emit('update_waiting_list', {
-                'count': len(Conversation.get_waiting())
-            }, room=sid)
+    if is_new_conversation and conversation.status == 'waiting':
+        log_debug("VISITOR", "新访客进入等待队列，通知所有在线客服")
+        if agent_sessions:
+            for sid in agent_sessions.keys():
+                socketio.emit('new_conversation', {
+                    'conversation_id': conversation_id,
+                    'visitor_id': visitor_id,
+                    'visitor_name': visitor_name
+                }, room=sid)
+                socketio.emit('update_waiting_list', {
+                    'count': len(Conversation.get_waiting())
+                }, room=sid)
+    else:
+        log_debug("VISITOR", f"访客刷新页面，会话状态: {conversation.status}，不重复通知客服")
     
     log_debug("VISITOR", "访客连接事件结束")
     log_debug("VISITOR", "=" * 50)
