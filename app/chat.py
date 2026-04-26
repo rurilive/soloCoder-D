@@ -4,40 +4,35 @@ from app import socketio
 from app.database import User, Conversation, Message
 import uuid
 from datetime import datetime, timedelta
-import hashlib
 
 visitor_sessions = {}
 agent_sessions = {}
 
-visitor_id_to_sids = {}
-agent_id_to_sids = {}
+processed_message_ids = {}
+MESSAGE_DEDUP_WINDOW = 30
 
-recent_messages = {}
-MESSAGE_DEDUP_WINDOW = 2
-
-def generate_message_key(conversation_id, sender_id, content, message_type):
-    key_string = f"{conversation_id}:{sender_id}:{content}:{message_type}"
-    return hashlib.md5(key_string.encode()).hexdigest()
-
-def is_duplicate_message(conversation_id, sender_id, content, message_type):
-    global recent_messages
+def is_duplicate_message(message_id):
+    global processed_message_ids
+    
+    if not message_id:
+        return False
     
     now = datetime.now()
     cutoff_time = now - timedelta(seconds=MESSAGE_DEDUP_WINDOW)
     
     keys_to_remove = []
-    for key, timestamp in recent_messages.items():
+    for mid, timestamp in processed_message_ids.items():
         if timestamp < cutoff_time:
-            keys_to_remove.append(key)
+            keys_to_remove.append(mid)
     
     for key in keys_to_remove:
-        del recent_messages[key]
+        del processed_message_ids[key]
     
-    msg_key = generate_message_key(conversation_id, sender_id, content, message_type)
-    if msg_key in recent_messages:
+    if message_id in processed_message_ids:
+        log_debug("MESSAGE", f"检测到重复消息: message_id={message_id}")
         return True
     
-    recent_messages[msg_key] = now
+    processed_message_ids[message_id] = now
     return False
 
 EMOJIS = [
@@ -61,26 +56,6 @@ def handle_visitor_connect(data):
     log_debug("VISITOR", f"visitor_id: {visitor_id}")
     log_debug("VISITOR", f"visitor_name: {visitor_name}")
     
-    if visitor_id not in visitor_id_to_sids:
-        visitor_id_to_sids[visitor_id] = set()
-    
-    old_sids = visitor_id_to_sids[visitor_id].copy()
-    for old_sid in old_sids:
-        if old_sid != request.sid and old_sid in visitor_sessions:
-            log_debug("VISITOR", f"发现旧连接，断开旧连接: old_sid={old_sid}")
-            old_session = visitor_sessions[old_sid]
-            old_conversation_id = old_session.get('conversation_id')
-            
-            if old_conversation_id:
-                log_debug("VISITOR", f"让旧连接离开房间: {old_conversation_id}")
-                leave_room(old_conversation_id, sid=old_sid)
-            
-            del visitor_sessions[old_sid]
-            visitor_id_to_sids[visitor_id].remove(old_sid)
-            log_debug("VISITOR", f"已清理旧连接: {old_sid}")
-    
-    visitor_id_to_sids[visitor_id].add(request.sid)
-    
     user = User.get(visitor_id)
     if not user:
         log_debug("VISITOR", "访客不存在，创建新用户")
@@ -95,7 +70,6 @@ def handle_visitor_connect(data):
         'conversation_id': None
     }
     log_debug("VISITOR", f"更新 visitor_sessions: {visitor_sessions}")
-    log_debug("VISITOR", f"更新 visitor_id_to_sids: {visitor_id_to_sids}")
     
     conversation = Conversation.get_by_visitor(visitor_id)
     is_new_conversation = False
@@ -148,19 +122,6 @@ def handle_agent_connect(data):
     log_debug("AGENT", f"agent_id: {agent_id}")
     log_debug("AGENT", f"agent_name: {agent_name}")
     
-    if agent_id not in agent_id_to_sids:
-        agent_id_to_sids[agent_id] = set()
-    
-    old_sids = agent_id_to_sids[agent_id].copy()
-    for old_sid in old_sids:
-        if old_sid != request.sid and old_sid in agent_sessions:
-            log_debug("AGENT", f"发现旧连接，断开旧连接: old_sid={old_sid}")
-            del agent_sessions[old_sid]
-            agent_id_to_sids[agent_id].remove(old_sid)
-            log_debug("AGENT", f"已清理旧连接: {old_sid}")
-    
-    agent_id_to_sids[agent_id].add(request.sid)
-    
     user = User.get(agent_id)
     if not user:
         log_debug("AGENT", "客服不存在，创建新用户")
@@ -174,7 +135,6 @@ def handle_agent_connect(data):
         'agent_name': agent_name
     }
     log_debug("AGENT", f"更新 agent_sessions: {agent_sessions}")
-    log_debug("AGENT", f"更新 agent_id_to_sids: {agent_id_to_sids}")
     
     conversations = Conversation.get_active_for_agent(agent_id)
     log_debug("AGENT", f"客服的活跃会话数: {len(conversations)}")
@@ -219,6 +179,7 @@ def handle_send_message(data):
     log_debug("MESSAGE", f"收到的数据: {data}")
     log_debug("MESSAGE", f"WebSocket sid: {request.sid}")
     
+    message_id = data.get('message_id')
     conversation_id = data.get('conversation_id')
     content = data.get('content', '')
     message_type = data.get('message_type', 'text')
@@ -226,9 +187,14 @@ def handle_send_message(data):
     file_path = data.get('file_path')
     file_size = data.get('file_size')
     
+    log_debug("MESSAGE", f"message_id: {message_id}")
     log_debug("MESSAGE", f"conversation_id: {conversation_id}")
     log_debug("MESSAGE", f"message_type: {message_type}")
     log_debug("MESSAGE", f"content: {content[:50] if content else ''}...")
+    
+    if is_duplicate_message(message_id):
+        log_debug("MESSAGE", "消息已处理，跳过重复消息")
+        return
     
     sender_id = None
     sender_type = None
@@ -280,10 +246,6 @@ def handle_send_message(data):
         if conversation.visitor_id != sender_id:
             log_debug("MESSAGE", f"权限错误: 访客 {sender_id} 无权访问会话 {conversation_id} (该会话属于访客 {conversation.visitor_id})")
             return
-    
-    if is_duplicate_message(conversation_id, sender_id, content, message_type):
-        log_debug("MESSAGE", f"检测到重复消息，跳过处理: conversation_id={conversation_id}, sender_id={sender_id}")
-        return
     
     message = Message.create(
         conversation_id=conversation_id,
@@ -443,38 +405,11 @@ def handle_disconnect():
     
     if request.sid in visitor_sessions:
         log_debug("DISCONNECT", f"访客断开: {visitor_sessions[request.sid]}")
-        visitor_data = visitor_sessions[request.sid]
-        visitor_id = visitor_data.get('visitor_id')
-        conversation_id = visitor_data.get('conversation_id')
-        
-        if conversation_id:
-            log_debug("DISCONNECT", f"让断开的连接离开房间: {conversation_id}")
-            leave_room(conversation_id)
-        
         del visitor_sessions[request.sid]
-        
-        if visitor_id and visitor_id in visitor_id_to_sids:
-            if request.sid in visitor_id_to_sids[visitor_id]:
-                visitor_id_to_sids[visitor_id].remove(request.sid)
-                log_debug("DISCONNECT", f"从 visitor_id_to_sids 移除 sid={request.sid}")
-            if len(visitor_id_to_sids[visitor_id]) == 0:
-                del visitor_id_to_sids[visitor_id]
-                log_debug("DISCONNECT", f"visitor_id={visitor_id} 没有活跃连接，清理映射")
     
     if request.sid in agent_sessions:
         log_debug("DISCONNECT", f"客服断开: {agent_sessions[request.sid]}")
-        agent_data = agent_sessions[request.sid]
-        agent_id = agent_data.get('agent_id')
-        
         del agent_sessions[request.sid]
-        
-        if agent_id and agent_id in agent_id_to_sids:
-            if request.sid in agent_id_to_sids[agent_id]:
-                agent_id_to_sids[agent_id].remove(request.sid)
-                log_debug("DISCONNECT", f"从 agent_id_to_sids 移除 sid={request.sid}")
-            if len(agent_id_to_sids[agent_id]) == 0:
-                del agent_id_to_sids[agent_id]
-                log_debug("DISCONNECT", f"agent_id={agent_id} 没有活跃连接，清理映射")
         
         for sid in agent_sessions.keys():
             socketio.emit('update_waiting_list', {

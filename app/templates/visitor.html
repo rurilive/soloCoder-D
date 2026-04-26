@@ -430,6 +430,10 @@
         const emojis = ['😀', '😂', '🥰', '😎', '🤔', '👍', '👎', '❤️',
                         '🔥', '🎉', '😢', '😡', '🙏', '👋', '✨', '💯'];
         
+        function generateMessageId() {
+            return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
         const chatMessages = document.getElementById('chat-messages');
         const messageInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
@@ -470,6 +474,7 @@
             if (!text || !conversationId) return;
             
             socket.emit('send_message', {
+                message_id: generateMessageId(),
                 conversation_id: conversationId,
                 content: text,
                 message_type: 'text'
@@ -483,6 +488,7 @@
             if (!conversationId) return;
             
             socket.emit('send_message', {
+                message_id: generateMessageId(),
                 conversation_id: conversationId,
                 content: emoji,
                 message_type: 'emoji'
@@ -505,6 +511,7 @@
             .then(data => {
                 if (data.success) {
                     socket.emit('send_message', {
+                        message_id: generateMessageId(),
                         conversation_id: conversationId,
                         content: data.file_path,
                         message_type: 'file',
