@@ -77,35 +77,50 @@ def handle_visitor_connect(data):
     agent_sid, agent_id = get_available_agent()
     
     if agent_id and conversation.status == 'waiting':
-        log_debug("VISITOR", f"有可用客服，开始分配: agent_id={agent_id}, agent_sid={agent_sid}")
-        conversation.assign_agent(agent_id)
-        log_debug("VISITOR", f"会话状态已更新为: active, agent_id={agent_id}")
-        
-        agent_name = agent_sessions.get(agent_sid, {}).get('agent_name', '客服')
-        log_debug("VISITOR", f"客服名称: {agent_name}")
-        
-        if agent_sid:
-            log_debug("VISITOR", f"让客服加入房间: {conversation_id}")
-            socketio.server.enter_room(agent_sid, conversation_id)
-            log_debug("VISITOR", f"发送 new_conversation 事件给客服 sid={agent_sid}")
-            socketio.emit('new_conversation', {
-                'conversation_id': conversation_id,
-                'visitor_id': visitor_id,
-                'visitor_name': visitor_name
-            }, room=agent_sid)
+        current_conv = Conversation.get(conversation_id)
+        if current_conv.status != 'waiting' or current_conv.agent_id:
+            log_debug("VISITOR", f"会话已被其他客服接手，取消自动分配: conversation_id={conversation_id}, agent_id={current_conv.agent_id}")
         else:
-            log_debug("VISITOR", "警告: agent_sid 为空，无法让客服加入房间")
-        
-        log_debug("VISITOR", f"发送 agent_assigned 事件到房间 {conversation_id}")
-        log_debug("VISITOR", f"  - agent_id: {agent_id}")
-        log_debug("VISITOR", f"  - agent_name: {agent_name}")
-        log_debug("VISITOR", f"  - conversation_id: {conversation_id}")
-        emit('agent_assigned', {
-            'agent_id': agent_id,
-            'agent_name': agent_name,
-            'conversation_id': conversation_id,
-            'visitor_id': visitor_id
-        }, room=conversation_id)
+            log_debug("VISITOR", f"有可用客服，开始分配: agent_id={agent_id}, agent_sid={agent_sid}")
+            if current_conv.assign_agent(agent_id):
+                log_debug("VISITOR", f"会话状态已更新为: active, agent_id={agent_id}")
+                
+                agent_name = agent_sessions.get(agent_sid, {}).get('agent_name', '客服')
+                log_debug("VISITOR", f"客服名称: {agent_name}")
+                
+                log_debug("VISITOR", f"广播 conversation_assigned 给所有客服，移除会话 {conversation_id}")
+                for sid in agent_sessions.keys():
+                    if sid != agent_sid:
+                        socketio.emit('conversation_assigned', {
+                            'conversation_id': conversation_id,
+                            'visitor_id': visitor_id,
+                            'assigned_agent_id': agent_id
+                        }, room=sid)
+                
+                if agent_sid:
+                    log_debug("VISITOR", f"让客服加入房间: {conversation_id}")
+                    socketio.server.enter_room(agent_sid, conversation_id)
+                    log_debug("VISITOR", f"发送 new_conversation 事件给客服 sid={agent_sid}")
+                    socketio.emit('new_conversation', {
+                        'conversation_id': conversation_id,
+                        'visitor_id': visitor_id,
+                        'visitor_name': visitor_name
+                    }, room=agent_sid)
+                else:
+                    log_debug("VISITOR", "警告: agent_sid 为空，无法让客服加入房间")
+                
+                log_debug("VISITOR", f"发送 agent_assigned 事件到房间 {conversation_id}")
+                log_debug("VISITOR", f"  - agent_id: {agent_id}")
+                log_debug("VISITOR", f"  - agent_name: {agent_name}")
+                log_debug("VISITOR", f"  - conversation_id: {conversation_id}")
+                emit('agent_assigned', {
+                    'agent_id': agent_id,
+                    'agent_name': agent_name,
+                    'conversation_id': conversation_id,
+                    'visitor_id': visitor_id
+                }, room=conversation_id)
+            else:
+                log_debug("VISITOR", f"会话分配失败，已被其他客服接手: conversation_id={conversation_id}, agent_id={current_conv.agent_id}")
     else:
         log_debug("VISITOR", f"没有可用客服或会话不是 waiting 状态")
         log_debug("VISITOR", f"  - agent_id={agent_id}")
@@ -169,19 +184,35 @@ def handle_agent_connect(data):
     if waiting:
         conversation = waiting[0]
         log_debug("AGENT", f"分配等待中的会话: conversation_id={conversation.conversation_id}")
-        conversation.assign_agent(agent_id)
-        log_debug("AGENT", f"会话状态已更新为: active, agent_id={agent_id}")
         
-        log_debug("AGENT", f"客服加入房间: {conversation.conversation_id}")
-        join_room(conversation.conversation_id)
-        
-        log_debug("AGENT", f"发送 agent_assigned 事件到房间 {conversation.conversation_id}")
-        emit('agent_assigned', {
-            'agent_id': agent_id,
-            'agent_name': agent_name,
-            'conversation_id': conversation.conversation_id,
-            'visitor_id': conversation.visitor_id
-        }, room=conversation.conversation_id)
+        current_conv = Conversation.get(conversation.conversation_id)
+        if current_conv.status != 'waiting' or current_conv.agent_id:
+            log_debug("AGENT", f"会话已被其他客服接手，取消分配: conversation_id={conversation.conversation_id}, agent_id={current_conv.agent_id}")
+        else:
+            if current_conv.assign_agent(agent_id):
+                log_debug("AGENT", f"会话状态已更新为: active, agent_id={agent_id}")
+                
+                log_debug("AGENT", f"广播 conversation_assigned 给所有客服，移除会话 {conversation.conversation_id}")
+                for sid in agent_sessions.keys():
+                    if sid != request.sid:
+                        socketio.emit('conversation_assigned', {
+                            'conversation_id': conversation.conversation_id,
+                            'visitor_id': conversation.visitor_id,
+                            'assigned_agent_id': agent_id
+                        }, room=sid)
+                
+                log_debug("AGENT", f"客服加入房间: {conversation.conversation_id}")
+                join_room(conversation.conversation_id)
+                
+                log_debug("AGENT", f"发送 agent_assigned 事件到房间 {conversation.conversation_id}")
+                emit('agent_assigned', {
+                    'agent_id': agent_id,
+                    'agent_name': agent_name,
+                    'conversation_id': conversation.conversation_id,
+                    'visitor_id': conversation.visitor_id
+                }, room=conversation.conversation_id)
+            else:
+                log_debug("AGENT", f"会话分配失败，已被其他客服接手: conversation_id={conversation.conversation_id}, agent_id={current_conv.agent_id}")
     else:
         log_debug("AGENT", "没有等待中的会话")
     
@@ -240,6 +271,27 @@ def handle_send_message(data):
         return
     
     log_debug("MESSAGE", f"会话信息: visitor_id={conversation.visitor_id}, agent_id={conversation.agent_id}, status={conversation.status}")
+    
+    if sender_type == 'agent':
+        if conversation.agent_id != sender_id:
+            log_debug("MESSAGE", f"权限错误: 客服 {sender_id} 无权访问会话 {conversation_id} (该会话属于客服 {conversation.agent_id})")
+            emit('message_error', {
+                'error': '您无权访问此会话',
+                'conversation_id': conversation_id
+            })
+            return
+        if conversation.status != 'active':
+            log_debug("MESSAGE", f"会话状态错误: 会话 {conversation_id} 状态为 {conversation.status}，无法发送消息")
+            emit('message_error', {
+                'error': '会话未激活，无法发送消息',
+                'conversation_id': conversation_id
+            })
+            return
+    
+    if sender_type == 'visitor':
+        if conversation.visitor_id != sender_id:
+            log_debug("MESSAGE", f"权限错误: 访客 {sender_id} 无权访问会话 {conversation_id} (该会话属于访客 {conversation.visitor_id})")
+            return
     
     message = Message.create(
         conversation_id=conversation_id,
@@ -321,21 +373,54 @@ def handle_join_conversation(data):
     log_debug("JOIN", f"会话信息: visitor_id={conversation.visitor_id}, agent_id={conversation.agent_id}, status={conversation.status}")
     
     if conversation.status == 'waiting':
-        log_debug("JOIN", "会话是 waiting 状态，分配给当前客服")
-        conversation.assign_agent(agent_id)
-        log_debug("JOIN", f"会话状态已更新为: active, agent_id={agent_id}")
+        if conversation.agent_id and conversation.agent_id != agent_id:
+            log_debug("JOIN", f"会话已被其他客服接手: conversation_id={conversation_id}, agent_id={conversation.agent_id}")
+            emit('conversation_taken', {
+                'conversation_id': conversation_id,
+                'visitor_id': conversation.visitor_id,
+                'taken_by_agent_id': conversation.agent_id
+            })
+            return
         
-        for sid, visitor_data in visitor_sessions.items():
-            if visitor_data.get('conversation_id') == conversation_id:
-                log_debug("JOIN", f"发送 agent_assigned 事件给访客 sid={sid}")
-                socketio.emit('agent_assigned', {
-                    'agent_id': agent_id,
-                    'agent_name': agent_sessions[request.sid]['agent_name'],
-                    'conversation_id': conversation_id,
-                    'visitor_id': conversation.visitor_id
-                }, room=sid)
-                break
+        log_debug("JOIN", "会话是 waiting 状态，分配给当前客服")
+        if conversation.assign_agent(agent_id):
+            log_debug("JOIN", f"会话状态已更新为: active, agent_id={agent_id}")
+            
+            log_debug("JOIN", f"广播 conversation_assigned 给所有客服，移除会话 {conversation_id}")
+            for sid in agent_sessions.keys():
+                if sid != request.sid:
+                    socketio.emit('conversation_assigned', {
+                        'conversation_id': conversation_id,
+                        'visitor_id': conversation.visitor_id,
+                        'assigned_agent_id': agent_id
+                    }, room=sid)
+            
+            for sid, visitor_data in visitor_sessions.items():
+                if visitor_data.get('conversation_id') == conversation_id:
+                    log_debug("JOIN", f"发送 agent_assigned 事件给访客 sid={sid}")
+                    socketio.emit('agent_assigned', {
+                        'agent_id': agent_id,
+                        'agent_name': agent_sessions[request.sid]['agent_name'],
+                        'conversation_id': conversation_id,
+                        'visitor_id': conversation.visitor_id
+                    }, room=sid)
+                    break
+        else:
+            log_debug("JOIN", f"会话分配失败，已被其他客服接手: conversation_id={conversation_id}, agent_id={conversation.agent_id}")
+            emit('conversation_taken', {
+                'conversation_id': conversation_id,
+                'visitor_id': conversation.visitor_id,
+                'taken_by_agent_id': conversation.agent_id
+            })
+            return
     else:
+        if conversation.agent_id != agent_id:
+            log_debug("JOIN", f"权限错误: 客服 {agent_id} 无权访问会话 {conversation_id} (该会话属于客服 {conversation.agent_id})")
+            emit('conversation_access_denied', {
+                'conversation_id': conversation_id,
+                'error': '您无权访问此会话'
+            })
+            return
         log_debug("JOIN", f"会话不是 waiting 状态，直接加入")
     
     log_debug("JOIN", f"客服加入房间: {conversation_id}")

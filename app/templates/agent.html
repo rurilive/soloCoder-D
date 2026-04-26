@@ -1083,6 +1083,52 @@
             }
         });
         
+        socket.on('conversation_assigned', (data) => {
+            console.log('会话已被其他客服接手:', data);
+            
+            const index = waitingVisitors.findIndex(v => v.conversationId === data.conversation_id);
+            if (index > -1) {
+                waitingVisitors.splice(index, 1);
+                updateWaitingList();
+            }
+            
+            if (conversations.has(data.conversation_id)) {
+                conversations.delete(data.conversation_id);
+                updateConversationList();
+            }
+            
+            if (currentConversationId === data.conversation_id) {
+                alert('该会话已被其他客服接手');
+                currentConversationId = null;
+                emptyState.classList.remove('hidden');
+                chatHeader.classList.add('hidden');
+                chatMessages.classList.add('hidden');
+                chatInputContainer.classList.add('hidden');
+                updateConversationList();
+            }
+        });
+        
+        socket.on('conversation_taken', (data) => {
+            console.log('尝试接入的会话已被其他客服接手:', data);
+            alert('该访客已被其他客服接手，请选择其他访客');
+            
+            const index = waitingVisitors.findIndex(v => v.conversationId === data.conversation_id);
+            if (index > -1) {
+                waitingVisitors.splice(index, 1);
+                updateWaitingList();
+            }
+        });
+        
+        socket.on('conversation_access_denied', (data) => {
+            console.log('无权限访问会话:', data);
+            alert('您无权访问此会话');
+        });
+        
+        socket.on('message_error', (data) => {
+            console.log('消息发送错误:', data);
+            alert('消息发送失败: ' + (data.error || '未知错误'));
+        });
+        
         sendBtn.onclick = sendMessage;
         
         messageInput.addEventListener('keypress', (e) => {

@@ -202,18 +202,30 @@ class Conversation:
             )
         return None
     
-    def assign_agent(self, agent_id: str):
-        self.agent_id = agent_id
-        self.status = 'active'
+    def assign_agent(self, agent_id: str) -> bool:
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE conversations 
             SET agent_id = ?, status = 'active', updated_at = CURRENT_TIMESTAMP
-            WHERE conversation_id = ?
+            WHERE conversation_id = ? AND status = 'waiting' AND agent_id IS NULL
         ''', (agent_id, self.conversation_id))
+        affected_rows = cursor.rowcount
         conn.commit()
-        conn.close()
+        
+        if affected_rows > 0:
+            self.agent_id = agent_id
+            self.status = 'active'
+            conn.close()
+            return True
+        else:
+            cursor.execute('SELECT * FROM conversations WHERE conversation_id = ?', (self.conversation_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                self.agent_id = row['agent_id']
+                self.status = row['status']
+            return False
     
     def close(self):
         self.status = 'closed'
