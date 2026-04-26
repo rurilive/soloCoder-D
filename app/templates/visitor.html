@@ -675,6 +675,28 @@
             addMessage(data);
         });
         
+        socket.on('conversation_closed', (data) => {
+            console.log('会话已结束:', data);
+            addSystemMessage('客服已结束当前会话，感谢您的咨询！');
+            
+            agentAssigned = false;
+            statusIndicator.className = 'chat-status-indicator status-waiting';
+            statusText.textContent = '会话已结束';
+        });
+        
+        socket.on('conversation_transferred', (data) => {
+            console.log('会话已转移:', data);
+            addSystemMessage('会话已转移，正在为您重新分配客服...');
+            
+            agentAssigned = false;
+            statusIndicator.className = 'chat-status-indicator status-waiting';
+            statusText.textContent = '等待重新分配客服...';
+            
+            if (agentIdDisplay) {
+                agentIdDisplay.style.display = 'none';
+            }
+        });
+        
         sendBtn.onclick = sendMessage;
         
         messageInput.addEventListener('keypress', (e) => {

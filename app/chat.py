@@ -398,6 +398,154 @@ def handle_leave_conversation(data):
     if conversation_id:
         leave_room(conversation_id)
 
+@socketio.on('close_conversation')
+def handle_close_conversation(data):
+    log_debug("CLOSE", "=" * 50)
+    log_debug("CLOSE", "结束会话事件开始")
+    log_debug("CLOSE", f"收到的数据: {data}")
+    log_debug("CLOSE", f"WebSocket sid: {request.sid}")
+    
+    conversation_id = data.get('conversation_id')
+    agent_id = None
+    
+    if request.sid in agent_sessions:
+        agent_id = agent_sessions[request.sid]['agent_id']
+        log_debug("CLOSE", f"客服 agent_id: {agent_id}")
+    
+    if not conversation_id or not agent_id:
+        log_debug("CLOSE", f"缺少参数: conversation_id={conversation_id}, agent_id={agent_id}")
+        emit('close_conversation_error', {
+            'error': '缺少必要参数',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    conversation = Conversation.get(conversation_id)
+    if not conversation:
+        log_debug("CLOSE", f"会话不存在: conversation_id={conversation_id}")
+        emit('close_conversation_error', {
+            'error': '会话不存在',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    log_debug("CLOSE", f"会话信息: visitor_id={conversation.visitor_id}, agent_id={conversation.agent_id}, status={conversation.status}")
+    
+    if conversation.agent_id != agent_id:
+        log_debug("CLOSE", f"权限错误: 客服 {agent_id} 无权结束会话 {conversation_id} (该会话属于客服 {conversation.agent_id})")
+        emit('close_conversation_error', {
+            'error': '您无权结束此会话',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    if conversation.status != 'active':
+        log_debug("CLOSE", f"会话状态错误: 会话 {conversation_id} 状态为 {conversation.status}，无法结束")
+        emit('close_conversation_error', {
+            'error': '会话未激活，无法结束',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    conversation.close()
+    log_debug("CLOSE", f"会话已结束: conversation_id={conversation_id}")
+    
+    emit('conversation_closed', {
+        'conversation_id': conversation_id,
+        'visitor_id': conversation.visitor_id,
+        'message': '会话已结束'
+    }, room=conversation_id)
+    
+    leave_room(conversation_id)
+    
+    log_debug("CLOSE", "结束会话事件结束")
+    log_debug("CLOSE", "=" * 50)
+
+@socketio.on('transfer_conversation')
+def handle_transfer_conversation(data):
+    log_debug("TRANSFER", "=" * 50)
+    log_debug("TRANSFER", "转移会话事件开始")
+    log_debug("TRANSFER", f"收到的数据: {data}")
+    log_debug("TRANSFER", f"WebSocket sid: {request.sid}")
+    
+    conversation_id = data.get('conversation_id')
+    target_agent_id = data.get('target_agent_id')
+    current_agent_id = None
+    
+    if request.sid in agent_sessions:
+        current_agent_id = agent_sessions[request.sid]['agent_id']
+        log_debug("TRANSFER", f"当前客服 agent_id: {current_agent_id}")
+    
+    if not conversation_id or not current_agent_id:
+        log_debug("TRANSFER", f"缺少参数: conversation_id={conversation_id}, current_agent_id={current_agent_id}")
+        emit('transfer_conversation_error', {
+            'error': '缺少必要参数',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    conversation = Conversation.get(conversation_id)
+    if not conversation:
+        log_debug("TRANSFER", f"会话不存在: conversation_id={conversation_id}")
+        emit('transfer_conversation_error', {
+            'error': '会话不存在',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    log_debug("TRANSFER", f"会话信息: visitor_id={conversation.visitor_id}, agent_id={conversation.agent_id}, status={conversation.status}")
+    
+    if conversation.agent_id != current_agent_id:
+        log_debug("TRANSFER", f"权限错误: 客服 {current_agent_id} 无权转移会话 {conversation_id} (该会话属于客服 {conversation.agent_id})")
+        emit('transfer_conversation_error', {
+            'error': '您无权转移此会话',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    if conversation.status != 'active':
+        log_debug("TRANSFER", f"会话状态错误: 会话 {conversation_id} 状态为 {conversation.status}，无法转移")
+        emit('transfer_conversation_error', {
+            'error': '会话未激活，无法转移',
+            'conversation_id': conversation_id
+        })
+        return
+    
+    conversation.agent_id = None
+    conversation.status = 'waiting'
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE conversations 
+        SET agent_id = NULL, status = 'waiting', updated_at = CURRENT_TIMESTAMP
+        WHERE conversation_id = ?
+    ''', (conversation_id,))
+    conn.commit()
+    conn.close()
+    
+    log_debug("TRANSFER", f"会话已转移回等待队列: conversation_id={conversation_id}")
+    
+    emit('conversation_transferred', {
+        'conversation_id': conversation_id,
+        'visitor_id': conversation.visitor_id,
+        'message': '会话已转移'
+    }, room=conversation_id)
+    
+    leave_room(conversation_id)
+    
+    for sid in agent_sessions.keys():
+        socketio.emit('new_conversation', {
+            'conversation_id': conversation_id,
+            'visitor_id': conversation.visitor_id,
+            'visitor_name': f'访客_{conversation.visitor_id[:8]}'
+        }, room=sid)
+        socketio.emit('update_waiting_list', {
+            'count': len(Conversation.get_waiting())
+        }, room=sid)
+    
+    log_debug("TRANSFER", "转移会话事件结束")
+    log_debug("TRANSFER", "=" * 50)
+
 @socketio.on('disconnect')
 def handle_disconnect():
     log_debug("DISCONNECT", "=" * 50)

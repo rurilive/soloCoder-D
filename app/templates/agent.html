@@ -694,6 +694,7 @@
         const visitorIdDisplay = document.getElementById('visitor-id-display');
         const agentIdDisplay = document.getElementById('agent-id-display');
         const closeBtn = document.getElementById('close-btn');
+        const transferBtn = document.getElementById('transfer-btn');
         const quickReplies = document.getElementById('quick-replies');
         
         function initEmojiPicker() {
@@ -1147,7 +1148,81 @@
             alert('消息发送失败: ' + (data.error || '未知错误'));
         });
         
+        socket.on('conversation_closed', (data) => {
+            console.log('会话已结束:', data);
+            
+            if (data.conversation_id === currentConversationId) {
+                alert('会话已结束');
+                
+                if (conversations.has(data.conversation_id)) {
+                    conversations.delete(data.conversation_id);
+                }
+                
+                currentConversationId = null;
+                emptyState.classList.remove('hidden');
+                chatHeader.classList.add('hidden');
+                chatMessages.classList.add('hidden');
+                chatInputContainer.classList.add('hidden');
+                updateConversationList();
+            }
+        });
+        
+        socket.on('conversation_transferred', (data) => {
+            console.log('会话已转移:', data);
+            
+            if (data.conversation_id === currentConversationId) {
+                alert('会话已转移回等待队列');
+                
+                if (conversations.has(data.conversation_id)) {
+                    conversations.delete(data.conversation_id);
+                }
+                
+                currentConversationId = null;
+                emptyState.classList.remove('hidden');
+                chatHeader.classList.add('hidden');
+                chatMessages.classList.add('hidden');
+                chatInputContainer.classList.add('hidden');
+                updateConversationList();
+            }
+        });
+        
+        socket.on('close_conversation_error', (data) => {
+            console.log('结束会话错误:', data);
+            alert('结束会话失败: ' + (data.error || '未知错误'));
+        });
+        
+        socket.on('transfer_conversation_error', (data) => {
+            console.log('转移会话错误:', data);
+            alert('转移会话失败: ' + (data.error || '未知错误'));
+        });
+        
         sendBtn.onclick = sendMessage;
+        
+        closeBtn.onclick = () => {
+            if (!currentConversationId) {
+                alert('请先选择一个对话');
+                return;
+            }
+            
+            if (confirm('确定要结束当前对话吗？')) {
+                socket.emit('close_conversation', {
+                    conversation_id: currentConversationId
+                });
+            }
+        };
+        
+        transferBtn.onclick = () => {
+            if (!currentConversationId) {
+                alert('请先选择一个对话');
+                return;
+            }
+            
+            if (confirm('确定要转移当前对话吗？转移后该访客将回到等待队列。')) {
+                socket.emit('transfer_conversation', {
+                    conversation_id: currentConversationId
+                });
+            }
+        };
         
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
