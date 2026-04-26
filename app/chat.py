@@ -316,16 +316,13 @@ def handle_join_conversation(data):
                         'assigned_agent_id': agent_id
                     }, room=sid)
             
-            for sid, visitor_data in visitor_sessions.items():
-                if visitor_data.get('conversation_id') == conversation_id:
-                    log_debug("JOIN", f"发送 agent_assigned 事件给访客 sid={sid}")
-                    socketio.emit('agent_assigned', {
-                        'agent_id': agent_id,
-                        'agent_name': agent_sessions[request.sid]['agent_name'],
-                        'conversation_id': conversation_id,
-                        'visitor_id': conversation.visitor_id
-                    }, room=sid)
-                    break
+            log_debug("JOIN", f"广播 agent_assigned 事件到房间 {conversation_id}")
+            emit('agent_assigned', {
+                'agent_id': agent_id,
+                'agent_name': agent_sessions[request.sid]['agent_name'],
+                'conversation_id': conversation_id,
+                'visitor_id': conversation.visitor_id
+            }, room=conversation_id)
         else:
             log_debug("JOIN", f"会话分配失败，已被其他客服接手: conversation_id={conversation_id}, agent_id={conversation.agent_id}")
             emit('conversation_taken', {

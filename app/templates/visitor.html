@@ -621,13 +621,25 @@
             visitorIdText.textContent = visitorId.substring(0, 8) + '...';
             visitorIdText.title = visitorId;
             
-            statusIndicator.className = 'chat-status-indicator status-waiting';
-            statusText.textContent = '等待客服接入...';
+            if (data.status === 'active') {
+                agentAssigned = true;
+                statusIndicator.className = 'chat-status-indicator status-online';
+                statusText.textContent = '客服已接入';
+                waitingMessage.classList.add('hidden');
+            } else {
+                statusIndicator.className = 'chat-status-indicator status-waiting';
+                statusText.textContent = '等待客服接入...';
+            }
             
             socket.emit('get_history', { conversation_id: conversationId });
         });
         
         socket.on('agent_assigned', (data) => {
+            if (agentAssigned) {
+                console.log('会话已被客服接入，跳过重复处理');
+                return;
+            }
+            
             agentAssigned = true;
             
             if (data.agent_id) {
