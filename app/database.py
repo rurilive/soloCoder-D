@@ -89,12 +89,20 @@ class User:
             ''', (user_id, name, user_type))
             conn.commit()
             display_id = cursor.lastrowid
+            conn.close()
+            return cls(user_id, name, user_type, display_id)
         except sqlite3.IntegrityError:
-            cursor.execute('SELECT id FROM users WHERE user_id = ?', (user_id,))
+            cursor.execute('''
+                UPDATE users SET name = ?, last_active = CURRENT_TIMESTAMP 
+                WHERE user_id = ?
+            ''', (name, user_id))
+            conn.commit()
+            cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
             row = cursor.fetchone()
-            display_id = row['id'] if row else 0
-        conn.close()
-        return cls(user_id, name, user_type, display_id)
+            conn.close()
+            if row:
+                return cls(row['user_id'], row['name'], row['user_type'], row['id'])
+            return cls(user_id, name, user_type, 0)
     
     @classmethod
     def get(cls, user_id: str) -> Optional['User']:

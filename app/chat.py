@@ -161,7 +161,7 @@ def handle_agent_connect(data):
     for conversation in waiting:
         visitor_user = User.get(conversation.visitor_id)
         visitor_display_id = visitor_user.display_id if visitor_user else 0
-        visitor_name = f'访客_{conversation.visitor_id[:8]}'
+        visitor_name = visitor_user.name if visitor_user else f'访客_{conversation.visitor_id[:8]}'
         log_debug("AGENT", f"发送等待中的访客给新客服: conversation_id={conversation.conversation_id}, visitor_id={conversation.visitor_id}")
         emit('new_conversation', {
             'conversation_id': conversation.conversation_id,
