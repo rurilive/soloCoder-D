@@ -1,7 +1,7 @@
 from flask_socketio import emit, join_room, leave_room
 from flask import request
 from app import socketio
-from app.database import User, Conversation, Message
+from app.database import User, Conversation, Message, get_db
 import uuid
 from datetime import datetime, timedelta
 
@@ -547,11 +547,16 @@ def handle_transfer_conversation(data):
     
     leave_room(conversation_id)
     
+    visitor_user = User.get(conversation.visitor_id)
+    visitor_display_id = visitor_user.display_id if visitor_user else 0
+    visitor_name = visitor_user.name if visitor_user else f'访客_{conversation.visitor_id[:8]}'
+    
     for sid in agent_sessions.keys():
         socketio.emit('new_conversation', {
             'conversation_id': conversation_id,
             'visitor_id': conversation.visitor_id,
-            'visitor_name': f'访客_{conversation.visitor_id[:8]}'
+            'visitor_display_id': visitor_display_id,
+            'visitor_name': visitor_name
         }, room=sid)
         socketio.emit('update_waiting_list', {
             'count': len(Conversation.get_waiting())
