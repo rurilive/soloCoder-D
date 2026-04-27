@@ -730,7 +730,11 @@
             
             visitorName.textContent = conv.visitorName || '访客';
             if (conv.visitorId) {
-                visitorIdDisplay.textContent = conv.visitorId.substring(0, 8) + '...';
+                if (conv.visitorDisplayId) {
+                    visitorIdDisplay.textContent = `#${conv.visitorDisplayId}`;
+                } else {
+                    visitorIdDisplay.textContent = conv.visitorId.substring(0, 8) + '...';
+                }
                 visitorIdDisplay.title = conv.visitorId;
             }
             
@@ -940,12 +944,17 @@
             waitingVisitors.forEach(visitor => {
                 const item = document.createElement('div');
                 item.className = 'waiting-item';
-                const shortId = visitor.visitorId ? visitor.visitorId.substring(0, 8) + '...' : '';
+                let displayId = '';
+                if (visitor.visitorDisplayId) {
+                    displayId = `#${visitor.visitorDisplayId}`;
+                } else if (visitor.visitorId) {
+                    displayId = visitor.visitorId.substring(0, 8) + '...';
+                }
                 item.innerHTML = `
                     <div class="avatar">👤</div>
                     <div class="info">
                         <div class="name">${visitor.visitorName || '访客'}</div>
-                        <div class="time" style="font-size: 11px; color: #666;">ID: ${shortId}</div>
+                        <div class="time" style="font-size: 11px; color: #666;">ID: ${displayId}</div>
                     </div>
                     <button class="accept-btn">接入</button>
                 `;
@@ -979,12 +988,19 @@
             activeConvs.forEach(([id, conv]) => {
                 const item = document.createElement('div');
                 item.className = `conversation-item ${id === currentConversationId ? 'active' : ''}`;
-                const shortId = conv.visitorId ? conv.visitorId.substring(0, 8) + '...' : '';
+                let displayId = '';
+                if (conv.visitorDisplayId) {
+                    displayId = `#${conv.visitorDisplayId}`;
+                } else if (conv.visitorId) {
+                    displayId = conv.visitorId.substring(0, 8) + '...';
+                } else {
+                    displayId = '-';
+                }
                 item.innerHTML = `
                     <div class="avatar">👤</div>
                     <div class="info">
                         <div class="name">${conv.visitorName || '访客'}</div>
-                        <div class="preview" style="font-size: 11px; color: #666;">ID: ${shortId || '-'}</div>
+                        <div class="preview" style="font-size: 11px; color: #666;">ID: ${displayId}</div>
                         <div class="preview">${conv.lastPreview || '暂无消息'}</div>
                     </div>
                     ${conv.hasUnread && id !== currentConversationId ? '<div class="unread"></div>' : ''}
@@ -1003,8 +1019,13 @@
             agentId = data.agent_id;
             localStorage.setItem('chat_agent_id', agentId);
             
-            agentIdDisplay.textContent = agentId.substring(0, 8) + '...';
-            agentIdDisplay.title = agentId;
+            if (data.agent_display_id) {
+                agentIdDisplay.textContent = `#${data.agent_display_id}`;
+                agentIdDisplay.title = agentId;
+            } else {
+                agentIdDisplay.textContent = agentId.substring(0, 8) + '...';
+                agentIdDisplay.title = agentId;
+            }
             
             if (data.active_conversations && data.active_conversations.length > 0) {
                 data.active_conversations.forEach(conv => {
@@ -1034,6 +1055,7 @@
             waitingVisitors.push({
                 conversationId: data.conversation_id,
                 visitorId: data.visitor_id,
+                visitorDisplayId: data.visitor_display_id,
                 visitorName: data.visitor_name
             });
             updateWaitingList();
@@ -1047,6 +1069,7 @@
                     messages: [],
                     visitorName: '访客',
                     visitorId: data.visitor_id,
+                    visitorDisplayId: data.visitor_display_id,
                     lastPreview: ''
                 });
             }
@@ -1057,6 +1080,9 @@
             }
             if (data.visitor_id) {
                 conv.visitorId = data.visitor_id;
+            }
+            if (data.visitor_display_id) {
+                conv.visitorDisplayId = data.visitor_display_id;
             }
             
             if (currentConversationId === conversationId) {
@@ -1086,6 +1112,7 @@
                     messages: [],
                     visitorName: '访客',
                     visitorId: data.visitor_id,
+                    visitorDisplayId: data.visitor_display_id,
                     lastPreview: ''
                 });
             }
@@ -1093,6 +1120,9 @@
             const conv = conversations.get(data.conversation_id);
             if (data.visitor_id) {
                 conv.visitorId = data.visitor_id;
+            }
+            if (data.visitor_display_id) {
+                conv.visitorDisplayId = data.visitor_display_id;
             }
             
             updateConversationList();

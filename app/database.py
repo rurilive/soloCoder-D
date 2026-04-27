@@ -72,10 +72,11 @@ def init_db():
     conn.close()
 
 class User:
-    def __init__(self, user_id: str, name: str, user_type: str):
+    def __init__(self, user_id: str, name: str, user_type: str, display_id: int = 0):
         self.user_id = user_id
         self.name = name
         self.user_type = user_type
+        self.display_id = display_id
     
     @classmethod
     def create(cls, user_id: str, name: str, user_type: str) -> 'User':
@@ -87,10 +88,13 @@ class User:
                 VALUES (?, ?, ?)
             ''', (user_id, name, user_type))
             conn.commit()
+            display_id = cursor.lastrowid
         except sqlite3.IntegrityError:
-            pass
+            cursor.execute('SELECT id FROM users WHERE user_id = ?', (user_id,))
+            row = cursor.fetchone()
+            display_id = row['id'] if row else 0
         conn.close()
-        return cls(user_id, name, user_type)
+        return cls(user_id, name, user_type, display_id)
     
     @classmethod
     def get(cls, user_id: str) -> Optional['User']:
@@ -100,7 +104,7 @@ class User:
         row = cursor.fetchone()
         conn.close()
         if row:
-            return cls(row['user_id'], row['name'], row['user_type'])
+            return cls(row['user_id'], row['name'], row['user_type'], row['id'])
         return None
     
     def update_last_active(self):

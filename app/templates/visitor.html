@@ -625,7 +625,7 @@
             localStorage.setItem('chat_visitor_id', visitorId);
             isConnected = true;
             
-            visitorIdText.textContent = visitorId.substring(0, 8) + '...';
+            visitorIdText.textContent = visitorId;
             visitorIdText.title = visitorId;
             
             if (data.status === 'active') {
@@ -650,7 +650,7 @@
             agentAssigned = true;
             
             if (data.agent_id) {
-                agentIdText.textContent = data.agent_id.substring(0, 8) + '...';
+                agentIdText.textContent = data.agent_id;
                 agentIdText.title = data.agent_id;
                 agentIdDisplay.style.display = 'block';
             }

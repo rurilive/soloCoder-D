@@ -88,6 +88,7 @@ def handle_visitor_connect(data):
     log_debug("VISITOR", "发送 visitor_connected 事件给访客")
     emit('visitor_connected', {
         'visitor_id': visitor_id,
+        'visitor_display_id': user.display_id,
         'conversation_id': conversation_id,
         'status': conversation.status
     })
@@ -99,6 +100,7 @@ def handle_visitor_connect(data):
                 socketio.emit('new_conversation', {
                     'conversation_id': conversation_id,
                     'visitor_id': visitor_id,
+                    'visitor_display_id': user.display_id,
                     'visitor_name': visitor_name
                 }, room=sid)
                 socketio.emit('update_waiting_list', {
@@ -142,6 +144,7 @@ def handle_agent_connect(data):
     log_debug("AGENT", "发送 agent_connected 事件给客服")
     emit('agent_connected', {
         'agent_id': agent_id,
+        'agent_display_id': user.display_id,
         'active_conversations': [
             {
                 'conversation_id': c.conversation_id,
@@ -156,11 +159,14 @@ def handle_agent_connect(data):
     log_debug("AGENT", f"等待中的会话数: {len(waiting)}")
     
     for conversation in waiting:
+        visitor_user = User.get(conversation.visitor_id)
+        visitor_display_id = visitor_user.display_id if visitor_user else 0
         visitor_name = f'访客_{conversation.visitor_id[:8]}'
         log_debug("AGENT", f"发送等待中的访客给新客服: conversation_id={conversation.conversation_id}, visitor_id={conversation.visitor_id}")
         emit('new_conversation', {
             'conversation_id': conversation.conversation_id,
             'visitor_id': conversation.visitor_id,
+            'visitor_display_id': visitor_display_id,
             'visitor_name': visitor_name
         })
     
@@ -326,6 +332,11 @@ def handle_join_conversation(data):
     
     log_debug("JOIN", f"会话信息: visitor_id={conversation.visitor_id}, agent_id={conversation.agent_id}, status={conversation.status}")
     
+    agent_user = User.get(agent_id)
+    agent_display_id = agent_user.display_id if agent_user else 0
+    visitor_user = User.get(conversation.visitor_id)
+    visitor_display_id = visitor_user.display_id if visitor_user else 0
+    
     if conversation.status == 'waiting':
         if conversation.agent_id and conversation.agent_id != agent_id:
             log_debug("JOIN", f"会话已被其他客服接手: conversation_id={conversation_id}, agent_id={conversation.agent_id}")
@@ -352,9 +363,11 @@ def handle_join_conversation(data):
             log_debug("JOIN", f"广播 agent_assigned 事件到房间 {conversation_id}")
             emit('agent_assigned', {
                 'agent_id': agent_id,
+                'agent_display_id': agent_display_id,
                 'agent_name': agent_sessions[request.sid]['agent_name'],
                 'conversation_id': conversation_id,
-                'visitor_id': conversation.visitor_id
+                'visitor_id': conversation.visitor_id,
+                'visitor_display_id': visitor_display_id
             }, room=conversation_id)
         else:
             log_debug("JOIN", f"会话分配失败，已被其他客服接手: conversation_id={conversation_id}, agent_id={conversation.agent_id}")
@@ -384,6 +397,7 @@ def handle_join_conversation(data):
     emit('conversation_joined', {
         'conversation_id': conversation_id,
         'visitor_id': conversation.visitor_id,
+        'visitor_display_id': visitor_display_id,
         'status': conversation.status,
         'messages': [m.to_dict() for m in messages]
     })
