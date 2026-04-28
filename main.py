@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -63,7 +63,8 @@ class SessionStopRequest(BaseModel):
 
 @app.get("/")
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    html_content = (TEMPLATES_DIR / "index.html").read_text()
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/api/sessions")
@@ -73,12 +74,12 @@ async def list_sessions():
 
 
 @app.post("/api/sessions")
-async def create_session(request: SessionCreateRequest):
+async def create_session(data: SessionCreateRequest):
     try:
-        session_id = await container_manager.create_session(request.language)
+        session_id = await container_manager.create_session(data.language)
         return {
             "session_id": session_id,
-            "language": request.language,
+            "language": data.language,
             "status": "created"
         }
     except Exception as e:
@@ -97,14 +98,14 @@ async def stop_session(session_id: str):
 
 
 @app.post("/api/execute")
-async def execute_code(request: CodeExecutionRequest):
-    if not request.session_id:
+async def execute_code(data: CodeExecutionRequest):
+    if not data.session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
     
     try:
         result = await container_manager.execute_code(
-            session_id=request.session_id,
-            code=request.code
+            session_id=data.session_id,
+            code=data.code
         )
         return {
             "session_id": result.session_id,
