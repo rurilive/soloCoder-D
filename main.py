@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -58,11 +58,10 @@ class SessionStopRequest(BaseModel):
     session_id: str
 
 
-class ClearAllRequest(BaseModel):
-    pass
 
 
-@app.get("/", response_class=HTMLResponse)
+
+@app.get("/")
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
@@ -122,7 +121,7 @@ async def execute_code(request: CodeExecutionRequest):
 
 
 @app.post("/api/clear-all")
-async def clear_all_sessions(request: ClearAllRequest, background_tasks: BackgroundTasks):
+async def clear_all_sessions(background_tasks: BackgroundTasks):
     try:
         background_tasks.add_task(container_manager.stop_all_sessions)
         return {"status": "clearing", "message": "All sessions are being cleared in background"}
