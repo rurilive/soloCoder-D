@@ -246,6 +246,8 @@ CMD ["sleep", "infinity"]
                 "--security-opt", "no-new-privileges",
                 "--pids-limit", "64",
                 "-v", f"/tmp/sandbox-{session_id[:8]}:/sandbox:rw",
+                "--tmpfs", "/tmp",
+                "--tmpfs", "/var/tmp",
                 image_name,
                 "sleep", "infinity",
                 stdout=asyncio.subprocess.PIPE,
