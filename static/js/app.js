@@ -60,7 +60,7 @@ class SandboxApp {
     }
 
     initEventListeners() {
-        this.newSessionBtn.addEventListener('click', () => this.createSession());
+        this.newSessionBtn.addEventListener('click', () => this.showCreateSessionModal());
         this.clearAllBtn.addEventListener('click', () => this.confirmClearAll());
         this.runBtn.addEventListener('click', () => this.runCode());
         this.pauseSessionBtn.addEventListener('click', () => this.confirmPauseSession());
