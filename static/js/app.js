@@ -63,30 +63,9 @@ class SandboxApp {
     loadDefaultCode() {
         const language = this.languageSelectEl.value;
         if (language === 'python') {
-            this.codeEditorEl.value = `# Python 示例代码
-print("Hello, World!")
-
-# 简单计算
-result = 1 + 1
-print(f"1 + 1 = {result}")
-
-# 循环
-for i in range(5):
-    print(f"迭代 {i}")
-`;
+            this.codeEditorEl.value = '# Python 示例代码\nprint("Hello, World!")\n\n# 简单计算\nresult = 1 + 1\nprint(f"1 + 1 = {result}")\n\n# 循环\nfor i in range(5):\n    print(f"迭代 {i}")\n';
         } else if (language === 'javascript') {
-            this.codeEditorEl.value = `// JavaScript 示例代码
-console.log("Hello, World!");
-
-// 简单计算
-const result = 1 + 1;
-console.log(`1 + 1 = ${result}`);
-
-// 循环
-for (let i = 0; i < 5; i++) {
-    console.log(`迭代 ${i}`);
-}
-`;
+            this.codeEditorEl.value = '// JavaScript 示例代码\nconsole.log("Hello, World!");\n\n// 简单计算\nconst result = 1 + 1;\nconsole.log(`1 + 1 = ${result}`);\n\n// 循环\nfor (let i = 0; i < 5; i++) {\n    console.log(`迭代 ${i}`);\n}\n';
         }
     }
 
