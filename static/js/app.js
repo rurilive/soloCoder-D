@@ -4,6 +4,8 @@ class SandboxApp {
         this.sessions = [];
         this.apiBase = '';
         this._modalConfirmHandler = null;
+        this._creatingSessionId = null;
+        this._isCreatingSession = false;
         
         this.initElements();
         this.initEventListeners();
@@ -81,21 +83,49 @@ class SandboxApp {
     }
 
     renderSessionList() {
-        if (this.sessions.length === 0) {
+        let allSessions = [...this.sessions];
+        
+        if (this._isCreatingSession && this._creatingSessionId) {
+            allSessions.unshift({
+                id: this._creatingSessionId,
+                language: this._creatingLanguage || 'python',
+                status: 'creating',
+                isCreating: true
+            });
+        }
+
+        if (allSessions.length === 0) {
             this.sessionListEl.innerHTML = '<div class="empty-message">暂无运行中的会话</div>';
             return;
         }
 
-        const html = this.sessions.map(session => {
+        const html = allSessions.map(session => {
             const isActive = session.id === this.currentSessionId;
             const isRunning = session.status === 'running';
+            const isCreating = session.isCreating === true;
+            
+            let statusClass = 'stopped';
+            let statusText = this.formatStatus(session.status);
+            let dotClass = 'stopped';
+            
+            if (isCreating) {
+                statusClass = 'creating';
+                statusText = '创建中';
+                dotClass = 'creating';
+            } else if (isRunning) {
+                statusClass = 'running';
+                statusText = '运行中';
+                dotClass = 'running';
+            }
+            
             return `
-                <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
-                    <div class="session-id">${session.id.substring(0, 12)}...</div>
+                <div class="session-item ${isActive ? 'active' : ''} ${isCreating ? 'creating' : ''}" data-session-id="${session.id}">
+                    <div class="session-id">${isCreating ? '新建会话...' : (session.id.substring(0, 12) + '...')}</div>
                     <div class="session-language">${this.formatLanguage(session.language)}</div>
-                    <div class="session-status ${isRunning ? 'running' : 'stopped'}">
-                        <span class="status-dot ${isRunning ? 'running' : 'stopped'}"></span>
-                        ${this.formatStatus(session.status)}
+                    <div class="session-status ${statusClass}">
+                        <span class="status-dot ${dotClass}"></span>
+                        ${isCreating ? '<span class="creating-animation"></span>' : ''}
+                        ${statusText}
                     </div>
                 </div>
             `;
@@ -103,7 +133,7 @@ class SandboxApp {
 
         this.sessionListEl.innerHTML = html;
 
-        this.sessionListEl.querySelectorAll('.session-item').forEach(item => {
+        this.sessionListEl.querySelectorAll('.session-item:not(.creating)').forEach(item => {
             item.addEventListener('click', () => {
                 const sessionId = item.dataset.sessionId;
                 this.selectSession(sessionId);
@@ -128,8 +158,22 @@ class SandboxApp {
     }
 
     async createSession() {
+        if (this._isCreatingSession) {
+            this.addOutput('info', '正在创建会话中，请稍候...');
+            return;
+        }
+        
         const language = this.languageSelectEl.value;
+        
+        this._isCreatingSession = true;
+        this._creatingSessionId = 'creating-' + Date.now();
+        this._creatingLanguage = language;
+        
+        this.newSessionBtn.disabled = true;
+        
         this.addOutput('info', `正在创建 ${this.formatLanguage(language)} 会话...`);
+        
+        this.renderSessionList();
         
         try {
             const response = await fetch(`${this.apiBase}/api/sessions`, {
@@ -153,6 +197,12 @@ class SandboxApp {
             
         } catch (error) {
             this.addOutput('error', `创建会话失败: ${error.message}`);
+        } finally {
+            this._isCreatingSession = false;
+            this._creatingSessionId = null;
+            this._creatingLanguage = null;
+            this.newSessionBtn.disabled = false;
+            this.renderSessionList();
         }
     }
 

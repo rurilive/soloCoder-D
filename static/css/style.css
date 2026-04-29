@@ -94,6 +94,27 @@ body {
     border-color: #0e639c;
 }
 
+.session-item.creating {
+    background-color: #2d2d2d;
+    border-color: #0e639c;
+    cursor: default;
+    animation: sessionCreatingPulse 1.5s ease-in-out infinite;
+}
+
+.session-item.creating:hover {
+    background-color: #2d2d2d;
+    border-color: #0e639c;
+}
+
+@keyframes sessionCreatingPulse {
+    0%, 100% {
+        border-color: #0e639c;
+    }
+    50% {
+        border-color: #1177bb;
+    }
+}
+
 .session-item .session-id {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 0.85rem;
@@ -122,6 +143,10 @@ body {
     color: #f44747;
 }
 
+.session-status.creating {
+    color: #569cd6;
+}
+
 .status-dot {
     width: 8px;
     height: 8px;
@@ -134,6 +159,48 @@ body {
 
 .status-dot.stopped {
     background-color: #f44747;
+}
+
+.status-dot.creating {
+    background-color: #569cd6;
+    animation: statusDotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes statusDotPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(0.8);
+    }
+}
+
+.creating-animation {
+    display: inline-block;
+    margin-left: 4px;
+}
+
+.creating-animation::after {
+    content: '...';
+    display: inline-block;
+    animation: loadingDots 1.4s infinite;
+}
+
+@keyframes loadingDots {
+    0% {
+        opacity: 0.2;
+        letter-spacing: 0;
+    }
+    50% {
+        opacity: 1;
+        letter-spacing: 2px;
+    }
+    100% {
+        opacity: 0.2;
+        letter-spacing: 0;
+    }
 }
 
 .empty-message {
