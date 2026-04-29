@@ -40,6 +40,8 @@ class SandboxApp {
         this.tabBtns = document.querySelectorAll('.tab-btn');
         this.tabContents = document.querySelectorAll('.tab-content');
 
+        this.imageTagInput = document.getElementById('imageTagInput');
+
         this.refreshStatsBtn = document.getElementById('refreshStatsBtn');
         this.containerDetailsEl = document.getElementById('containerDetails');
         this.containerStatsEl = document.getElementById('containerStats');
@@ -242,19 +244,30 @@ class SandboxApp {
         this._creatingSessionId = 'creating-' + Date.now();
         this._creatingLanguage = language;
         
+        const imageTag = this.imageTagInput.value.trim() || null;
+        
         this.newSessionBtn.disabled = true;
         
-        this.addOutput('info', `正在创建 ${this.formatLanguage(language)} 会话...`);
+        let createMessage = `正在创建 ${this.formatLanguage(language)} 会话...`;
+        if (imageTag) {
+            createMessage = `正在创建 ${this.formatLanguage(language)} 会话 (Tag: ${imageTag})...`;
+        }
+        this.addOutput('info', createMessage);
         
         this.renderSessionList();
         
         try {
+            const body = { language };
+            if (imageTag) {
+                body.image_tag = imageTag;
+            }
+            
             const response = await fetch(`${this.apiBase}/api/sessions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ language })
+                body: JSON.stringify(body)
             });
 
             if (!response.ok) {

@@ -52,6 +52,7 @@ class CodeExecutionRequest(BaseModel):
 
 class SessionCreateRequest(BaseModel):
     language: str = "python"
+    image_tag: Optional[str] = None
 
 
 class SessionStopRequest(BaseModel):
@@ -85,10 +86,11 @@ async def list_sessions():
 @app.post("/api/sessions")
 async def create_session(data: SessionCreateRequest):
     try:
-        session_id = await container_manager.create_session(data.language)
+        session_id = await container_manager.create_session(data.language, data.image_tag)
         return {
             "session_id": session_id,
             "language": data.language,
+            "image_tag": data.image_tag,
             "status": "created"
         }
     except Exception as e:

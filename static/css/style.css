@@ -263,6 +263,36 @@ body {
     border-color: #0e639c;
 }
 
+.image-tag-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.image-tag-selector label {
+    font-size: 0.9rem;
+    color: #d4d4d4;
+}
+
+.image-tag-selector input {
+    background-color: #3c3c3c;
+    color: #d4d4d4;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    width: 100px;
+}
+
+.image-tag-selector input:focus {
+    outline: none;
+    border-color: #0e639c;
+}
+
+.image-tag-selector input::placeholder {
+    color: #808080;
+}
+
 .session-info {
     font-size: 0.85rem;
     color: #808080;

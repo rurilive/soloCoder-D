@@ -14,12 +14,16 @@ from app.database import db_manager, ContainerSession, InstalledPackage
 logger = logging.getLogger(__name__)
 
 CONTAINER_PREFIX = "sandbox-exec-"
-DOCKER_IMAGE = "debian:bookworm-slim"
+DEFAULT_PYTHON_IMAGE = "python:3.11-alpine3.22"
+DEFAULT_NODE_IMAGE = "node:20-alpine"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
 CPU_LIMIT = 0.5
 MAX_PACKAGE_INSTALL_TIME = 120
+
+PYTHON_IMAGE_PREFIX = "python:"
+NODE_IMAGE_PREFIX = "node:"
 
 
 @dataclass
@@ -79,117 +83,45 @@ class ContainerManager:
         self._session_locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
 
-    async def _ensure_python_image(self) -> str:
-        image_name = "sandbox-python:latest"
-        try:
-            result = await asyncio.create_subprocess_exec(
-                "docker", "inspect", image_name,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            if result.returncode == 0:
-                return image_name
-        except Exception:
-            pass
-
-        dockerfile_content = f"""FROM {DOCKER_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /sandbox
-CMD ["sleep", "infinity"]
-"""
-        temp_dir = Path("/tmp/sandbox-build-python")
-        temp_dir.mkdir(exist_ok=True)
-        dockerfile_path = temp_dir / "Dockerfile"
-        dockerfile_path.write_text(dockerfile_content)
-
-        try:
-            result = await asyncio.create_subprocess_exec(
-                "docker", "build", "-t", image_name, str(temp_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            if result.returncode != 0:
-                logger.error(f"Failed to build Python image: {stderr.decode()}")
-                raise Exception(f"Failed to build Python image: {stderr.decode()}")
-            return image_name
-        finally:
-            try:
-                if dockerfile_path.exists():
-                    dockerfile_path.unlink()
-            except Exception:
-                pass
-            try:
-                import shutil
-                if temp_dir.exists():
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass
-
-    async def _ensure_nodejs_image(self) -> str:
-        image_name = "sandbox-nodejs:latest"
-        try:
-            result = await asyncio.create_subprocess_exec(
-                "docker", "inspect", image_name,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            if result.returncode == 0:
-                return image_name
-        except Exception:
-            pass
-
-        dockerfile_content = f"""FROM {DOCKER_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /sandbox
-CMD ["sleep", "infinity"]
-"""
-        temp_dir = Path("/tmp/sandbox-build-node")
-        temp_dir.mkdir(exist_ok=True)
-        dockerfile_path = temp_dir / "Dockerfile"
-        dockerfile_path.write_text(dockerfile_content)
-
-        try:
-            result = await asyncio.create_subprocess_exec(
-                "docker", "build", "-t", image_name, str(temp_dir),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await result.communicate()
-            if result.returncode != 0:
-                logger.error(f"Failed to build Node.js image: {stderr.decode()}")
-                raise Exception(f"Failed to build Node.js image: {stderr.decode()}")
-            return image_name
-        finally:
-            try:
-                if dockerfile_path.exists():
-                    dockerfile_path.unlink()
-            except Exception:
-                pass
-            try:
-                import shutil
-                if temp_dir.exists():
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass
-
-    async def _get_image_for_language(self, language: str) -> str:
+    def _get_image_name(self, language: str, image_tag: Optional[str] = None) -> str:
         if language == "python":
-            return await self._ensure_python_image()
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid Python tag: {image_tag}")
+                return f"{PYTHON_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_PYTHON_IMAGE
         elif language == "javascript":
-            return await self._ensure_nodejs_image()
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid Node.js tag: {image_tag}")
+                return f"{NODE_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_NODE_IMAGE
         else:
             raise ValueError(f"Unsupported language: {language}")
+
+    async def _ensure_image(self, image_name: str) -> None:
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "inspect", image_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+            if result.returncode == 0:
+                return
+        except Exception:
+            pass
+
+        logger.info(f"Pulling image: {image_name}")
+        result = await asyncio.create_subprocess_exec(
+            "docker", "pull", image_name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await result.communicate()
+        if result.returncode != 0:
+            logger.error(f"Failed to pull image {image_name}: {stderr.decode()}")
+            raise Exception(f"Failed to pull image {image_name}: {stderr.decode()}")
 
     def _sanitize_code(self, code: str, language: str) -> str:
         dangerous_patterns = [
@@ -216,14 +148,16 @@ CMD ["sleep", "infinity"]
         
         return code
 
-    async def create_session(self, language: str) -> str:
+    async def create_session(self, language: str, image_tag: Optional[str] = None) -> str:
         async with self._global_lock:
             sessions = await db_manager.get_all_sessions()
             running_sessions = [s for s in sessions if s.status == "running"]
             if len(running_sessions) >= MAX_CONTAINERS:
                 raise Exception(f"Maximum number of containers ({MAX_CONTAINERS}) reached. Please stop some containers first.")
 
-        image_name = await self._get_image_for_language(language)
+        image_name = self._get_image_name(language, image_tag)
+        await self._ensure_image(image_name)
+        
         session_id = str(uuid.uuid4())
         container_name = f"{CONTAINER_PREFIX}{session_id[:8]}"
         
