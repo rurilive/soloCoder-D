@@ -741,7 +741,7 @@ CMD ["sleep", "infinity"]
 
             cmd = [
                 "docker", "exec", session.container_id,
-                "pip3", "install", "--quiet", "--no-cache-dir", full_package
+                "pip3", "install", "--quiet", "--no-cache-dir", "--break-system-packages", full_package
             ]
 
             try:
@@ -892,7 +892,7 @@ CMD ["sleep", "infinity"]
         async with lock:
             cmd = [
                 "docker", "exec", session.container_id,
-                "pip3", "uninstall", "-y", "--quiet", package_name
+                "pip3", "uninstall", "-y", "--quiet", "--break-system-packages", package_name
             ]
 
             try:
