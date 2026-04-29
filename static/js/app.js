@@ -232,19 +232,70 @@ class SandboxApp {
         return statusMap[status] || status;
     }
 
-    async createSession() {
+    showCreateSessionModal() {
         if (this._isCreatingSession) {
             this.addOutput('info', '正在创建会话中，请稍候...');
             return;
         }
         
-        const language = this.languageSelectEl.value;
+        const modalHtml = `
+            <div class="create-session-form">
+                <div class="form-group">
+                    <label for="modalLanguageSelect">语言:</label>
+                    <select id="modalLanguageSelect" class="form-select">
+                        <option value="python" selected>Python</option>
+                        <option value="javascript">JavaScript</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="modalImageTagInput">镜像 Tag (可选):</label>
+                    <input type="text" id="modalImageTagInput" class="form-input" placeholder="例如: 3.11, 20-alpine">
+                    <p class="form-hint">
+                        Python: 如 <code>3.11</code>, <code>3.10-alpine</code><br>
+                        Node.js: 如 <code>20</code>, <code>18-alpine</code>
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        this.modalTitleEl.textContent = '新建会话';
+        this.modalBodyEl.innerHTML = modalHtml;
+        this.modalConfirmBtn.textContent = '创建';
+        
+        if (this._modalConfirmHandler) {
+            this.modalConfirmBtn.removeEventListener('click', this._modalConfirmHandler);
+        }
+        
+        this._modalConfirmHandler = async () => {
+            const languageSelect = document.getElementById('modalLanguageSelect');
+            const imageTagInput = document.getElementById('modalImageTagInput');
+            const language = languageSelect.value;
+            const imageTag = imageTagInput.value.trim() || null;
+            
+            this.closeModal();
+            await this.createSession(language, imageTag);
+        };
+        
+        this.modalConfirmBtn.addEventListener('click', this._modalConfirmHandler);
+        this.modalEl.classList.remove('hidden');
+        
+        setTimeout(() => {
+            const languageSelect = document.getElementById('modalLanguageSelect');
+            if (languageSelect) {
+                languageSelect.focus();
+            }
+        }, 100);
+    }
+
+    async createSession(language, imageTag = null) {
+        if (this._isCreatingSession) {
+            this.addOutput('info', '正在创建会话中，请稍候...');
+            return;
+        }
         
         this._isCreatingSession = true;
         this._creatingSessionId = 'creating-' + Date.now();
         this._creatingLanguage = language;
-        
-        const imageTag = this.imageTagInput.value.trim() || null;
         
         this.newSessionBtn.disabled = true;
         
