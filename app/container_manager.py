@@ -74,8 +74,17 @@ CMD ["sleep", "infinity"]
                 raise Exception(f"Failed to build Python image: {stderr.decode()}")
             return image_name
         finally:
-            dockerfile_path.unlink()
-            temp_dir.rmdir()
+            try:
+                if dockerfile_path.exists():
+                    dockerfile_path.unlink()
+            except Exception:
+                pass
+            try:
+                import shutil
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
 
     async def _ensure_nodejs_image(self) -> str:
         image_name = "sandbox-nodejs:latest"
@@ -118,8 +127,17 @@ CMD ["sleep", "infinity"]
                 raise Exception(f"Failed to build Node.js image: {stderr.decode()}")
             return image_name
         finally:
-            dockerfile_path.unlink()
-            temp_dir.rmdir()
+            try:
+                if dockerfile_path.exists():
+                    dockerfile_path.unlink()
+            except Exception:
+                pass
+            try:
+                import shutil
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            except Exception:
+                pass
 
     async def _get_image_for_language(self, language: str) -> str:
         if language == "python":
@@ -139,7 +157,8 @@ CMD ["sleep", "infinity"]
             r"(?:iptables|ip6tables|nftables)",
             r"(?:passwd|shadow)",
             r"(?:crontab|at\s+)",
-            r"(?:wget\s+|curl\s+).*?bash|sh",
+            r"(?:wget\s+|curl\s+).*?(?:bash|sh)\s",
+            r"(?:\|\s*bash|\|\s*sh)\b",
             r"(?:eval\s*\()|(?:exec\s*\()",
             r"(?:__import__|subprocess|os\.system|os\.popen)",
             r"(?:import\s+ctypes|from\s+ctypes)",
@@ -163,6 +182,9 @@ CMD ["sleep", "infinity"]
         image_name = await self._get_image_for_language(language)
         session_id = str(uuid.uuid4())
         container_name = f"{CONTAINER_PREFIX}{session_id[:8]}"
+        
+        sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
+        sandbox_dir.mkdir(exist_ok=True)
 
         container_id = None
         try:
@@ -191,9 +213,6 @@ CMD ["sleep", "infinity"]
                 raise Exception(f"Failed to start container: {stderr.decode()}")
             
             container_id = stdout.decode().strip()
-            
-            sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
-            sandbox_dir.mkdir(exist_ok=True)
             
             session = ContainerSession(
                 id=session_id,
@@ -265,27 +284,40 @@ CMD ["sleep", "infinity"]
                     logger.error(f"Failed to stop session {session.id}: {e}")
 
     async def cleanup_orphaned_containers(self) -> int:
-        result = await asyncio.create_subprocess_exec(
-            "docker", "ps", "-a",
-            "--filter", f"name={CONTAINER_PREFIX}",
-            "--format", "{{.ID}}",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await result.communicate()
-        
-        container_ids = stdout.decode().strip().split("\n")
-        container_ids = [c for c in container_ids if c]
-        
-        cleaned = 0
-        for container_id in container_ids:
-            try:
-                await self._stop_container(container_id)
-                cleaned += 1
-            except Exception as e:
-                logger.warning(f"Failed to cleanup container {container_id}: {e}")
-        
-        return cleaned
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "ps", "-a",
+                "--filter", f"name={CONTAINER_PREFIX}",
+                "--format", "{{.ID}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+            
+            if result.returncode != 0:
+                logger.warning(f"Docker command failed: {stderr.decode()}")
+                return 0
+            
+            container_ids = stdout.decode().strip().split("\n")
+            container_ids = [c for c in container_ids if c]
+            
+            cleaned = 0
+            for container_id in container_ids:
+                try:
+                    await self._stop_container(container_id)
+                    cleaned += 1
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup container {container_id}: {e}")
+            
+            if cleaned > 0:
+                logger.info(f"Cleaned up {cleaned} orphaned containers")
+            return cleaned
+        except FileNotFoundError:
+            logger.warning("Docker command not found. Please ensure Docker is installed and in PATH.")
+            return 0
+        except Exception as e:
+            logger.warning(f"Failed to cleanup orphaned containers: {e}")
+            return 0
 
     async def execute_code(
         self,

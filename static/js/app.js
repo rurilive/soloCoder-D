@@ -3,6 +3,7 @@ class SandboxApp {
         this.currentSessionId = null;
         this.sessions = [];
         this.apiBase = '';
+        this._modalConfirmHandler = null;
         
         this.initElements();
         this.initEventListeners();
@@ -376,23 +377,36 @@ for (let i = 0; i < 5; i++) {
         this.modalTitleEl.textContent = title;
         this.modalBodyEl.innerHTML = bodyHtml;
         
-        const confirmHandler = () => {
+        if (this._modalConfirmHandler) {
+            this.modalConfirmBtn.removeEventListener('click', this._modalConfirmHandler);
+        }
+        
+        this._modalConfirmHandler = () => {
             this.closeModal();
             if (onConfirm) {
                 onConfirm();
             }
-            this.modalConfirmBtn.removeEventListener('click', confirmHandler);
         };
         
-        this.modalConfirmBtn.addEventListener('click', confirmHandler);
+        this.modalConfirmBtn.addEventListener('click', this._modalConfirmHandler);
         this.modalEl.classList.remove('hidden');
     }
 
     closeModal() {
         this.modalEl.classList.add('hidden');
+        if (this._modalConfirmHandler) {
+            this.modalConfirmBtn.removeEventListener('click', this._modalConfirmHandler);
+            this._modalConfirmHandler = null;
+        }
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initSandboxApp() {
     window.sandboxApp = new SandboxApp();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSandboxApp);
+} else {
+    initSandboxApp();
+}
