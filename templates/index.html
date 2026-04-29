@@ -40,21 +40,167 @@
                     </div>
                     <div class="editor-controls">
                         <button id="runBtn" class="btn btn-success" disabled>运行</button>
-                        <button id="stopSessionBtn" class="btn btn-warning" disabled>停止会话</button>
+                        <button id="pauseSessionBtn" class="btn btn-warning" disabled title="暂停">暂停</button>
+                        <button id="resumeSessionBtn" class="btn btn-info" disabled title="恢复">恢复</button>
+                        <button id="restartSessionBtn" class="btn btn-secondary" disabled title="重启">重启</button>
+                        <button id="stopSessionBtn" class="btn btn-danger" disabled title="停止">停止</button>
                     </div>
                 </div>
-                <div class="editor-container">
-                    <textarea id="codeEditor" placeholder="在此输入代码..."></textarea>
-                </div>
-                <div class="output-container">
-                    <div class="output-header">
-                        <h3>输出</h3>
-                        <button id="clearOutputBtn" class="btn btn-small">清空</button>
+                
+                <div class="tab-container">
+                    <div class="tab-header">
+                        <button class="tab-btn active" data-tab="code">代码</button>
+                        <button class="tab-btn" data-tab="details" disabled>详情</button>
+                        <button class="tab-btn" data-tab="packages" disabled>包管理</button>
+                        <button class="tab-btn" data-tab="logs" disabled>日志</button>
                     </div>
-                    <div class="output-content" id="outputContent">
-                        <div class="output-item">
-                            <span class="output-label info">[系统]</span>
-                            <span class="output-text">准备就绪。请创建或选择一个会话开始执行代码。</span>
+                    
+                    <div class="tab-content active" id="tab-code">
+                        <div class="editor-container">
+                            <textarea id="codeEditor" placeholder="在此输入代码..."></textarea>
+                        </div>
+                        <div class="output-container">
+                            <div class="output-header">
+                                <h3>输出</h3>
+                                <button id="clearOutputBtn" class="btn btn-small">清空</button>
+                            </div>
+                            <div class="output-content" id="outputContent">
+                                <div class="output-item">
+                                    <span class="output-label info">[系统]</span>
+                                    <span class="output-text">准备就绪。请创建或选择一个会话开始执行代码。</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="tab-details">
+                        <div class="details-container">
+                            <div class="details-section">
+                                <h3>容器信息</h3>
+                                <div class="details-grid" id="containerDetails">
+                                    <div class="detail-item">
+                                        <span class="detail-label">会话 ID:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">容器 ID:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">容器名称:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">镜像:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">状态:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">创建时间:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">语言:</span>
+                                        <span class="detail-value">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="details-section">
+                                <h3>资源使用 <button id="refreshStatsBtn" class="btn btn-small btn-secondary">刷新</button></h3>
+                                <div class="stats-grid" id="containerStats">
+                                    <div class="stat-item">
+                                        <div class="stat-label">CPU 使用率</div>
+                                        <div class="stat-value">0%</div>
+                                        <div class="stat-bar">
+                                            <div class="stat-bar-fill" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">内存使用</div>
+                                        <div class="stat-value">0 MB / 0 MB</div>
+                                        <div class="stat-bar">
+                                            <div class="stat-bar-fill" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">网络 I/O</div>
+                                        <div class="stat-value">0 KB / 0 KB</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">磁盘 I/O</div>
+                                        <div class="stat-value">0 KB / 0 KB</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">进程数</div>
+                                        <div class="stat-value">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="details-section">
+                                <h3>配置</h3>
+                                <div class="config-list" id="containerConfig">
+                                    <div class="config-item">
+                                        <span class="config-label">内存限制:</span>
+                                        <span class="config-value">-</span>
+                                    </div>
+                                    <div class="config-item">
+                                        <span class="config-label">CPU 限制:</span>
+                                        <span class="config-value">-</span>
+                                    </div>
+                                    <div class="config-item">
+                                        <span class="config-label">网络模式:</span>
+                                        <span class="config-value">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="tab-packages">
+                        <div class="packages-container">
+                            <div class="packages-header">
+                                <h3>已安装的包</h3>
+                                <div class="package-installer">
+                                    <input type="text" id="packageNameInput" placeholder="包名 (如: requests)" class="package-input">
+                                    <input type="text" id="packageVersionInput" placeholder="版本 (可选)" class="package-input version-input">
+                                    <button id="installPackageBtn" class="btn btn-primary btn-small">安装</button>
+                                    <button id="refreshPackagesBtn" class="btn btn-secondary btn-small">刷新</button>
+                                </div>
+                            </div>
+                            <div class="packages-list" id="packagesList">
+                                <div class="empty-message">请选择一个 Python 会话查看已安装的包</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="tab-logs">
+                        <div class="logs-container">
+                            <div class="logs-header">
+                                <h3>容器日志</h3>
+                                <div class="logs-controls">
+                                    <label>
+                                        <input type="checkbox" id="logsTimestamps"> 时间戳
+                                    </label>
+                                    <label>
+                                        显示行数:
+                                        <select id="logsTail">
+                                            <option value="50">50</option>
+                                            <option value="100" selected>100</option>
+                                            <option value="500">500</option>
+                                            <option value="1000">1000</option>
+                                        </select>
+                                    </label>
+                                    <button id="refreshLogsBtn" class="btn btn-secondary btn-small">刷新</button>
+                                </div>
+                            </div>
+                            <div class="logs-content" id="logsContent">
+                                <div class="empty-message">请选择一个会话查看日志</div>
+                            </div>
                         </div>
                     </div>
                 </div>

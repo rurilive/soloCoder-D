@@ -5,11 +5,11 @@ import subprocess
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
 
-from app.database import db_manager, ContainerSession
+from app.database import db_manager, ContainerSession, InstalledPackage
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
 CPU_LIMIT = 0.5
+MAX_PACKAGE_INSTALL_TIME = 120
 
 
 @dataclass
@@ -28,6 +29,49 @@ class ExecutionResult:
     error: str
     exit_code: int
     is_running: bool
+
+
+@dataclass
+class ContainerStats:
+    cpu_usage: float
+    memory_usage: int
+    memory_limit: int
+    memory_percentage: float
+    network_rx: int
+    network_tx: int
+    block_read: int
+    block_write: int
+    pids: int
+
+
+@dataclass
+class ContainerDetails:
+    session_id: str
+    container_id: str
+    container_name: str
+    image: str
+    status: str
+    created_at: datetime
+    language: str
+    ports: List[str] = field(default_factory=list)
+    mounts: List[Dict] = field(default_factory=list)
+    config: Dict = field(default_factory=dict)
+
+
+@dataclass
+class PackageInstallResult:
+    session_id: str
+    package_name: str
+    version: str
+    success: bool
+    output: str
+    error: str
+
+
+@dataclass
+class PackageListResult:
+    session_id: str
+    packages: List[Dict[str, str]]
 
 
 class ContainerManager:
@@ -427,6 +471,481 @@ CMD ["sleep", "infinity"]
                 "last_active_at": session.last_active_at.isoformat()
             })
         return result
+
+    async def get_container_details(self, session_id: str) -> ContainerDetails:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "inspect", session.container_id,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to inspect container: {stderr.decode()}")
+
+            data = json.loads(stdout.decode())[0]
+
+            container_name = data.get("Name", "").lstrip("/")
+            image = data.get("Config", {}).get("Image", "")
+            status = data.get("State", {}).get("Status", "")
+            created_at = datetime.fromisoformat(data.get("Created", "").replace("Z", "+00:00"))
+
+            ports = []
+            port_data = data.get("NetworkSettings", {}).get("Ports", {})
+            for port, bindings in (port_data or {}).items():
+                if bindings:
+                    for binding in bindings:
+                        ports.append(f"{binding.get('HostIP', '')}:{binding.get('HostPort', '')}->{port}")
+
+            mounts = []
+            mount_data = data.get("Mounts", [])
+            for mount in mount_data:
+                mounts.append({
+                    "source": mount.get("Source"),
+                    "destination": mount.get("Destination"),
+                    "type": mount.get("Type"),
+                    "mode": mount.get("Mode")
+                })
+
+            config = {
+                "memory": data.get("HostConfig", {}).get("Memory", 0),
+                "cpus": data.get("HostConfig", {}).get("NanoCpus", 0) / 1e9 if data.get("HostConfig", {}).get("NanoCpus") else 0,
+                "network_mode": data.get("HostConfig", {}).get("NetworkMode"),
+                "capabilities": {
+                    "drop": data.get("HostConfig", {}).get("CapDrop", [])
+                }
+            }
+
+            return ContainerDetails(
+                session_id=session_id,
+                container_id=session.container_id,
+                container_name=container_name,
+                image=image,
+                status=status,
+                created_at=created_at,
+                language=session.language,
+                ports=ports,
+                mounts=mounts,
+                config=config
+            )
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"Failed to parse container info: {e}")
+
+    async def get_container_stats(self, session_id: str) -> ContainerStats:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "stats", "--no-stream", "--format", "{{json .}}", session.container_id,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to get container stats: {stderr.decode()}")
+
+            output = stdout.decode().strip()
+            if not output:
+                raise Exception("No stats data returned")
+
+            data = json.loads(output)
+
+            def parse_memory(mem_str: str) -> int:
+                units = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3}
+                match = re.match(r"([\d.]+)\s*([A-Za-z]+)?", mem_str)
+                if match:
+                    num = float(match.group(1))
+                    unit = match.group(2) or "B"
+                    return int(num * units.get(unit, 1))
+                return 0
+
+            cpu_usage_str = data.get("CPUPerc", "0%")
+            cpu_usage = float(cpu_usage_str.replace("%", "")) if cpu_usage_str else 0.0
+
+            mem_usage_str = data.get("MemUsage", "0B / 0B")
+            mem_parts = mem_usage_str.split(" / ")
+            memory_usage = parse_memory(mem_parts[0]) if len(mem_parts) > 0 else 0
+            memory_limit = parse_memory(mem_parts[1]) if len(mem_parts) > 1 else 0
+
+            mem_perc_str = data.get("MemPerc", "0%")
+            memory_percentage = float(mem_perc_str.replace("%", "")) if mem_perc_str else 0.0
+
+            net_io_str = data.get("NetIO", "0B / 0B")
+            net_parts = net_io_str.split(" / ")
+            network_rx = parse_memory(net_parts[0]) if len(net_parts) > 0 else 0
+            network_tx = parse_memory(net_parts[1]) if len(net_parts) > 1 else 0
+
+            block_io_str = data.get("BlockIO", "0B / 0B")
+            block_parts = block_io_str.split(" / ")
+            block_read = parse_memory(block_parts[0]) if len(block_parts) > 0 else 0
+            block_write = parse_memory(block_parts[1]) if len(block_parts) > 1 else 0
+
+            pids_str = data.get("PIDs", "0")
+            pids = int(pids_str) if pids_str.isdigit() else 0
+
+            return ContainerStats(
+                cpu_usage=cpu_usage,
+                memory_usage=memory_usage,
+                memory_limit=memory_limit,
+                memory_percentage=memory_percentage,
+                network_rx=network_rx,
+                network_tx=network_tx,
+                block_read=block_read,
+                block_write=block_write,
+                pids=pids
+            )
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"Failed to parse stats data: {e}")
+
+    async def pause_session(self, session_id: str) -> None:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        if session.status != "running":
+            raise ValueError(f"Session {session_id} is not running")
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "pause", session.container_id,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to pause container: {stderr.decode()}")
+
+            await db_manager.update_session_status(session_id, "paused")
+            logger.info(f"Session {session_id} paused")
+
+        except Exception as e:
+            logger.error(f"Failed to pause session {session_id}: {e}")
+            raise
+
+    async def resume_session(self, session_id: str) -> None:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        if session.status != "paused":
+            raise ValueError(f"Session {session_id} is not paused")
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "unpause", session.container_id,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to resume container: {stderr.decode()}")
+
+            await db_manager.update_session_status(session_id, "running")
+            logger.info(f"Session {session_id} resumed")
+
+        except Exception as e:
+            logger.error(f"Failed to resume session {session_id}: {e}")
+            raise
+
+    async def restart_session(self, session_id: str) -> None:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "restart", "-t", "2", session.container_id,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to restart container: {stderr.decode()}")
+
+            await db_manager.update_session_status(session_id, "running")
+            logger.info(f"Session {session_id} restarted")
+
+        except Exception as e:
+            logger.error(f"Failed to restart session {session_id}: {e}")
+            raise
+
+    async def get_container_logs(
+        self,
+        session_id: str,
+        tail: int = 100,
+        timestamps: bool = False
+    ) -> str:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        cmd = ["docker", "logs", "--tail", str(tail)]
+        if timestamps:
+            cmd.append("-t")
+        cmd.append(session.container_id)
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            stdout, _ = await result.communicate()
+
+            return stdout.decode('utf-8', errors='replace')
+
+        except Exception as e:
+            logger.error(f"Failed to get logs for session {session_id}: {e}")
+            raise
+
+    async def install_package(
+        self,
+        session_id: str,
+        package_name: str,
+        version: Optional[str] = None,
+        timeout: int = MAX_PACKAGE_INSTALL_TIME
+    ) -> PackageInstallResult:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        if session.language != "python":
+            raise ValueError(f"Package installation is only supported for Python sessions")
+
+        if session.status not in ["running", "paused"]:
+            raise ValueError(f"Session {session_id} is not active")
+
+        lock = self._session_locks.get(session_id)
+        if not lock:
+            lock = asyncio.Lock()
+            self._session_locks[session_id] = lock
+
+        async with lock:
+            if version:
+                full_package = f"{package_name}=={version}"
+            else:
+                full_package = package_name
+
+            cmd = [
+                "docker", "exec", session.container_id,
+                "pip3", "install", "--quiet", "--no-cache-dir", full_package
+            ]
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        proc.communicate(),
+                        timeout=timeout
+                    )
+                    exit_code = proc.returncode
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    return PackageInstallResult(
+                        session_id=session_id,
+                        package_name=package_name,
+                        version=version or "",
+                        success=False,
+                        output="",
+                        error=f"Package installation timed out after {timeout} seconds"
+                    )
+
+                output = stdout.decode('utf-8', errors='replace')
+                error = stderr.decode('utf-8', errors='replace')
+                success = exit_code == 0
+
+                if success:
+                    installed_version = await self._get_installed_version(session.container_id, package_name)
+                    await db_manager.add_installed_package(session_id, package_name, installed_version)
+                    await db_manager.update_session_activity(session_id)
+
+                    return PackageInstallResult(
+                        session_id=session_id,
+                        package_name=package_name,
+                        version=installed_version,
+                        success=True,
+                        output=output,
+                        error=error
+                    )
+                else:
+                    return PackageInstallResult(
+                        session_id=session_id,
+                        package_name=package_name,
+                        version=version or "",
+                        success=False,
+                        output=output,
+                        error=error
+                    )
+
+            except Exception as e:
+                return PackageInstallResult(
+                    session_id=session_id,
+                    package_name=package_name,
+                    version=version or "",
+                    success=False,
+                    output="",
+                    error=str(e)
+                )
+
+    async def _get_installed_version(self, container_id: str, package_name: str) -> str:
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "exec", container_id,
+                "pip3", "show", package_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode == 0:
+                output = stdout.decode('utf-8')
+                for line in output.split('\n'):
+                    if line.startswith('Version:'):
+                        return line.split(':', 1)[1].strip()
+            return ""
+        except Exception:
+            return ""
+
+    async def list_installed_packages(self, session_id: str, refresh: bool = False) -> PackageListResult:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        if session.language != "python":
+            raise ValueError(f"Package listing is only supported for Python sessions")
+
+        if not refresh:
+            db_packages = await db_manager.get_installed_packages(session_id)
+            if db_packages:
+                packages = [{"name": pkg.name, "version": pkg.version} for pkg in db_packages]
+                return PackageListResult(session_id=session_id, packages=packages)
+
+        try:
+            result = await asyncio.create_subprocess_exec(
+                "docker", "exec", session.container_id,
+                "pip3", "list", "--format=freeze",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await result.communicate()
+
+            if result.returncode != 0:
+                raise Exception(f"Failed to list packages: {stderr.decode()}")
+
+            output = stdout.decode('utf-8', errors='replace')
+            packages = []
+
+            for line in output.strip().split('\n'):
+                if line and '==' in line:
+                    name, version = line.split('==', 1)
+                    packages.append({"name": name, "version": version})
+                    await db_manager.add_installed_package(session_id, name, version)
+
+            await db_manager.update_session_activity(session_id)
+
+            return PackageListResult(session_id=session_id, packages=packages)
+
+        except Exception as e:
+            logger.error(f"Failed to list packages for session {session_id}: {e}")
+            raise
+
+    async def uninstall_package(
+        self,
+        session_id: str,
+        package_name: str,
+        timeout: int = 60
+    ) -> PackageInstallResult:
+        session = await db_manager.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session {session_id} not found")
+
+        if session.language != "python":
+            raise ValueError(f"Package uninstallation is only supported for Python sessions")
+
+        if session.status not in ["running", "paused"]:
+            raise ValueError(f"Session {session_id} is not active")
+
+        lock = self._session_locks.get(session_id)
+        if not lock:
+            lock = asyncio.Lock()
+            self._session_locks[session_id] = lock
+
+        async with lock:
+            cmd = [
+                "docker", "exec", session.container_id,
+                "pip3", "uninstall", "-y", "--quiet", package_name
+            ]
+
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        proc.communicate(),
+                        timeout=timeout
+                    )
+                    exit_code = proc.returncode
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    return PackageInstallResult(
+                        session_id=session_id,
+                        package_name=package_name,
+                        version="",
+                        success=False,
+                        output="",
+                        error=f"Package uninstallation timed out after {timeout} seconds"
+                    )
+
+                output = stdout.decode('utf-8', errors='replace')
+                error = stderr.decode('utf-8', errors='replace')
+                success = exit_code == 0
+
+                if success:
+                    await db_manager.remove_installed_package(session_id, package_name)
+                    await db_manager.update_session_activity(session_id)
+
+                return PackageInstallResult(
+                    session_id=session_id,
+                    package_name=package_name,
+                    version="",
+                    success=success,
+                    output=output,
+                    error=error
+                )
+
+            except Exception as e:
+                return PackageInstallResult(
+                    session_id=session_id,
+                    package_name=package_name,
+                    version="",
+                    success=False,
+                    output="",
+                    error=str(e)
+                )
 
 
 container_manager = ContainerManager()

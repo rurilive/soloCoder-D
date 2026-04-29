@@ -58,6 +58,15 @@ class SessionStopRequest(BaseModel):
     session_id: str
 
 
+class PackageInstallRequest(BaseModel):
+    package_name: str
+    version: Optional[str] = None
+
+
+class PackageListRequest(BaseModel):
+    refresh: bool = False
+
+
 
 
 
@@ -141,6 +150,176 @@ async def get_session_status(session_id: str):
         }
     except Exception as e:
         logger.error(f"Failed to get session status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions/{session_id}/details")
+async def get_session_details(session_id: str):
+    try:
+        details = await container_manager.get_container_details(session_id)
+        return {
+            "session_id": details.session_id,
+            "container_id": details.container_id,
+            "container_name": details.container_name,
+            "image": details.image,
+            "status": details.status,
+            "created_at": details.created_at.isoformat(),
+            "language": details.language,
+            "ports": details.ports,
+            "mounts": details.mounts,
+            "config": details.config
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get session details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions/{session_id}/stats")
+async def get_session_stats(session_id: str):
+    try:
+        stats = await container_manager.get_container_stats(session_id)
+        return {
+            "session_id": session_id,
+            "cpu_usage": stats.cpu_usage,
+            "memory_usage": stats.memory_usage,
+            "memory_limit": stats.memory_limit,
+            "memory_percentage": stats.memory_percentage,
+            "network_rx": stats.network_rx,
+            "network_tx": stats.network_tx,
+            "block_read": stats.block_read,
+            "block_write": stats.block_write,
+            "pids": stats.pids
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get session stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sessions/{session_id}/pause")
+async def pause_session(session_id: str):
+    try:
+        await container_manager.pause_session(session_id)
+        return {"status": "paused", "session_id": session_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to pause session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sessions/{session_id}/resume")
+async def resume_session(session_id: str):
+    try:
+        await container_manager.resume_session(session_id)
+        return {"status": "running", "session_id": session_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to resume session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sessions/{session_id}/restart")
+async def restart_session(session_id: str):
+    try:
+        await container_manager.restart_session(session_id)
+        return {"status": "restarted", "session_id": session_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to restart session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions/{session_id}/logs")
+async def get_session_logs(
+    session_id: str,
+    tail: int = 100,
+    timestamps: bool = False
+):
+    try:
+        logs = await container_manager.get_container_logs(
+            session_id=session_id,
+            tail=tail,
+            timestamps=timestamps
+        )
+        return {
+            "session_id": session_id,
+            "logs": logs
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get session logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions/{session_id}/packages")
+async def list_packages(
+    session_id: str,
+    refresh: bool = False
+):
+    try:
+        result = await container_manager.list_installed_packages(
+            session_id=session_id,
+            refresh=refresh
+        )
+        return {
+            "session_id": result.session_id,
+            "packages": result.packages
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to list packages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sessions/{session_id}/packages")
+async def install_package(session_id: str, data: PackageInstallRequest):
+    try:
+        result = await container_manager.install_package(
+            session_id=session_id,
+            package_name=data.package_name,
+            version=data.version
+        )
+        return {
+            "session_id": result.session_id,
+            "package_name": result.package_name,
+            "version": result.version,
+            "success": result.success,
+            "output": result.output,
+            "error": result.error
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to install package: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/sessions/{session_id}/packages/{package_name}")
+async def uninstall_package(session_id: str, package_name: str):
+    try:
+        result = await container_manager.uninstall_package(
+            session_id=session_id,
+            package_name=package_name
+        )
+        return {
+            "session_id": result.session_id,
+            "package_name": result.package_name,
+            "success": result.success,
+            "output": result.output,
+            "error": result.error
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to uninstall package: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
