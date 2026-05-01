@@ -238,38 +238,122 @@ class SandboxApp {
             return;
         }
         
+        this.showLanguageSelectModal();
+    }
+
+    showLanguageSelectModal() {
         const modalHtml = `
-            <div class="create-session-form">
-                <div class="form-group">
-                    <label for="modalLanguageSelect">语言:</label>
-                    <select id="modalLanguageSelect" class="form-select">
-                        <option value="python" selected>Python</option>
-                        <option value="javascript">JavaScript</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="modalImageTagInput">镜像 Tag (可选):</label>
-                    <input type="text" id="modalImageTagInput" class="form-input" placeholder="例如: 3.11, 20-alpine">
-                    <p class="form-hint">
-                        Python: 如 <code>3.11</code>, <code>3.10-alpine</code><br>
-                        Node.js: 如 <code>20</code>, <code>18-alpine</code>
-                    </p>
+            <div class="language-select-modal">
+                <p class="modal-instruction">请选择要运行的代码语言：</p>
+                <div class="language-options">
+                    <button class="language-option" data-language="python">
+                        <div class="language-icon python-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M9 9h6v6H9z"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">Python</div>
+                        <div class="language-desc">适用于 Python 代码</div>
+                    </button>
+                    <button class="language-option" data-language="javascript">
+                        <div class="language-icon js-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M9 8h6v2H9z"/>
+                                <path d="M9 14h6v2H9z"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">JavaScript</div>
+                        <div class="language-desc">适用于 Node.js 代码</div>
+                    </button>
                 </div>
             </div>
         `;
         
-        this.modalTitleEl.textContent = '新建会话';
+        this.modalTitleEl.textContent = '新建会话 - 选择语言';
         this.modalBodyEl.innerHTML = modalHtml;
-        this.modalConfirmBtn.textContent = '创建';
+        this.modalConfirmBtn.classList.add('hidden');
+        this.modalCancelBtn.classList.add('hidden');
+        
+        if (this._modalConfirmHandler) {
+            this.modalConfirmBtn.removeEventListener('click', this._modalConfirmHandler);
+            this._modalConfirmHandler = null;
+        }
+        
+        this.modalEl.classList.remove('hidden');
+        
+        const languageOptions = this.modalBodyEl.querySelectorAll('.language-option');
+        languageOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const language = option.dataset.language;
+                this.showImageConfigModal(language);
+            });
+        });
+    }
+
+    showImageConfigModal(language) {
+        const languageName = this.formatLanguage(language);
+        const defaultTag = language === 'python' ? '3.11' : '20';
+        const hintText = language === 'python' 
+            ? 'Python: 如 <code>3.11</code>, <code>3.10-alpine</code>, <code>3.9-slim</code>'
+            : 'Node.js: 如 <code>20</code>, <code>18-alpine</code>, <code>16-slim</code>';
+        
+        const quickTags = language === 'python'
+            ? ['3.11', '3.10', '3.9', '3.11-alpine']
+            : ['20', '18', '16', '20-alpine'];
+        
+        const modalHtml = `
+            <div class="image-config-modal">
+                <div class="selected-language-info">
+                    <div class="selected-language-icon ${language}-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                            <path d="M9 9h6v6H9z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="selected-language-name">${languageName}</div>
+                        <div class="selected-language-desc">配置 ${languageName} 镜像参数</div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modalImageTagInput">镜像 Tag (可选):</label>
+                    <div class="quick-tags">
+                        ${quickTags.map(tag => `
+                            <button type="button" class="quick-tag-btn" data-tag="${tag}">${tag}</button>
+                        `).join('')}
+                    </div>
+                    <input type="text" id="modalImageTagInput" class="form-input" placeholder="例如: ${defaultTag}">
+                    <p class="form-hint">
+                        ${hintText}<br>
+                        留空则使用默认镜像
+                    </p>
+                </div>
+                
+                <div class="form-note">
+                    <p><strong>提示：</strong></p>
+                    <ul>
+                        <li>首次创建时可能需要拉取镜像，请耐心等待</li>
+                        <li>使用 <code>-alpine</code> 后缀的镜像通常体积更小</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        
+        this.modalTitleEl.textContent = '新建会话 - 配置镜像';
+        this.modalBodyEl.innerHTML = modalHtml;
+        this.modalConfirmBtn.classList.remove('hidden');
+        this.modalCancelBtn.classList.remove('hidden');
+        this.modalConfirmBtn.textContent = '创建会话';
         
         if (this._modalConfirmHandler) {
             this.modalConfirmBtn.removeEventListener('click', this._modalConfirmHandler);
         }
         
         this._modalConfirmHandler = async () => {
-            const languageSelect = document.getElementById('modalLanguageSelect');
             const imageTagInput = document.getElementById('modalImageTagInput');
-            const language = languageSelect.value;
             const imageTag = imageTagInput.value.trim() || null;
             
             this.closeModal();
@@ -277,12 +361,21 @@ class SandboxApp {
         };
         
         this.modalConfirmBtn.addEventListener('click', this._modalConfirmHandler);
-        this.modalEl.classList.remove('hidden');
+        
+        const quickTagBtns = this.modalBodyEl.querySelectorAll('.quick-tag-btn');
+        const imageTagInput = this.modalBodyEl.querySelector('#modalImageTagInput');
+        
+        quickTagBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                quickTagBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                imageTagInput.value = btn.dataset.tag;
+            });
+        });
         
         setTimeout(() => {
-            const languageSelect = document.getElementById('modalLanguageSelect');
-            if (languageSelect) {
-                languageSelect.focus();
+            if (imageTagInput) {
+                imageTagInput.focus();
             }
         }, 100);
     }
