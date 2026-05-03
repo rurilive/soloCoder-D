@@ -16,8 +16,8 @@ def test_lua_image_constants():
     """测试Lua语言相关常量是否正确定义"""
     print("测试1: 测试Lua语言常量定义...")
     
-    assert DEFAULT_LUA_IMAGE == "lua:5.4-alpine", f"预期 DEFAULT_LUA_IMAGE 应为 'lua:5.4-alpine'"
-    assert LUA_IMAGE_PREFIX == "lua:", f"预期 LUA_IMAGE_PREFIX 应为 'lua:'"
+    assert DEFAULT_LUA_IMAGE == "alpine:3.19", f"预期 DEFAULT_LUA_IMAGE 应为 'alpine:3.19'"
+    assert LUA_IMAGE_PREFIX == "alpine:", f"预期 LUA_IMAGE_PREFIX 应为 'alpine:'"
     
     print("  ✓ Lua语言常量定义正确")
     return True

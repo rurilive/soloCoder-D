@@ -21,7 +21,7 @@ DEFAULT_GO_IMAGE = "golang:1.22-alpine"
 DEFAULT_C_IMAGE = "gcc:13"
 DEFAULT_CPP_IMAGE = "gcc:13"
 DEFAULT_JAVA_IMAGE = "eclipse-temurin:21-jdk"
-DEFAULT_LUA_IMAGE = "lua:5.4-alpine"
+DEFAULT_LUA_IMAGE = "alpine:3.19"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
@@ -38,7 +38,7 @@ GO_IMAGE_PREFIX = "golang:"
 C_IMAGE_PREFIX = "gcc:"
 CPP_IMAGE_PREFIX = "gcc:"
 JAVA_IMAGE_PREFIX = "eclipse-temurin:"
-LUA_IMAGE_PREFIX = "lua:"
+LUA_IMAGE_PREFIX = "alpine:"
 
 
 @dataclass
@@ -314,7 +314,6 @@ class ContainerManager:
                 "-d",
                 "--name", container_name,
                 "--network", "none",
-                "--read-only",
                 "--memory", MEMORY_LIMIT,
                 "--cpus", str(CPU_LIMIT),
                 "--ulimit", "nproc=128:128",
@@ -325,6 +324,9 @@ class ContainerManager:
                 "-v", f"/tmp/sandbox-{session_id[:8]}:/sandbox:rw",
                 "--tmpfs", "/var/tmp"
             ]
+            
+            if language != "lua":
+                docker_run_cmd.extend(["--read-only"])
             
             if language == "python":
                 docker_run_cmd.extend([
@@ -369,13 +371,20 @@ class ContainerManager:
                 ])
             elif language == "lua":
                 docker_run_cmd.extend([
-                    "--tmpfs", "/tmp:noexec"
+                    "--tmpfs", "/tmp:exec,size=512m"
                 ])
             
-            docker_run_cmd.extend([
-                image_name,
-                "sleep", "infinity"
-            ])
+            if language == "lua":
+                docker_run_cmd.extend([
+                    image_name,
+                    "sh", "-c",
+                    "apk add --no-cache lua5.4 > /dev/null 2>&1 && sleep infinity"
+                ])
+            else:
+                docker_run_cmd.extend([
+                    image_name,
+                    "sleep", "infinity"
+                ])
             
             result = await asyncio.create_subprocess_exec(
                 *docker_run_cmd,
