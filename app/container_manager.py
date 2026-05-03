@@ -230,6 +230,37 @@ class ContainerManager:
     def _compute_java_code_hash(self, code: str) -> str:
         return hashlib.sha256(code.encode('utf-8')).hexdigest()
 
+    def _filter_java_stderr(self, stderr_str: str) -> str:
+        return self._filter_java_output(stderr_str)
+
+    def _filter_java_stdout(self, stdout_str: str) -> str:
+        return self._filter_java_output(stdout_str)
+
+    def _filter_java_output(self, output_str: str) -> str:
+        filtered_lines = []
+        info_patterns = [
+            r'^Picked up JAVA_TOOL_OPTIONS:',
+            r'^Picked up _JAVA_OPTIONS:',
+            r'^OpenJDK 64-Bit Server VM warning:',
+            r'^Java HotSpot\(TM\) 64-Bit Server VM warning:',
+        ]
+        
+        for line in output_str.split('\n'):
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+            
+            is_info = False
+            for pattern in info_patterns:
+                if re.match(pattern, line_stripped):
+                    is_info = True
+                    break
+            
+            if not is_info:
+                filtered_lines.append(line)
+        
+        return '\n'.join(filtered_lines)
+
     async def _get_java_cache(self, code_hash: str) -> Optional[Tuple[str, str]]:
         async with self._java_cache_lock:
             if code_hash in self._java_compile_cache:
@@ -521,7 +552,7 @@ class ContainerManager:
                 code_hash = self._compute_java_code_hash(prepared_code)
                 class_name = file_name[:-5]
                 
-                jvm_opts = "-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Xverify:none"
+                jvm_opts = "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
                 
                 compile_and_run = f"cat > /tmp/{file_name} << 'JAVA_EOF'\n{prepared_code}\nJAVA_EOF\ncd /tmp && javac -encoding UTF-8 -O {file_name} 2>&1 && java {jvm_opts} -cp /tmp {class_name}"
                 cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
@@ -554,10 +585,20 @@ class ContainerManager:
                 
                 await db_manager.update_session_activity(session_id)
                 
+                stdout_str = stdout.decode('utf-8', errors='replace')
+                stderr_str = stderr.decode('utf-8', errors='replace')
+                
+                if session.language == "java":
+                    filtered_stdout = self._filter_java_stdout(stdout_str)
+                    filtered_stderr = self._filter_java_stderr(stderr_str)
+                else:
+                    filtered_stdout = stdout_str
+                    filtered_stderr = stderr_str
+                
                 return ExecutionResult(
                     session_id=session_id,
-                    output=stdout.decode('utf-8', errors='replace'),
-                    error=stderr.decode('utf-8', errors='replace'),
+                    output=filtered_stdout,
+                    error=filtered_stderr,
                     exit_code=exit_code if exit_code is not None else -1,
                     is_running=True
                 )
