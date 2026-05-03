@@ -193,17 +193,22 @@ class ContainerManager:
                 "--security-opt", "no-new-privileges",
                 "--pids-limit", "64",
                 "-v", f"/tmp/sandbox-{session_id[:8]}:/sandbox:rw",
-                "--tmpfs", "/tmp",
                 "--tmpfs", "/var/tmp"
             ]
             
             if language == "python":
                 docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:noexec",
                     "-v", f"{site_packages_dir}:{SITE_PACKAGES_MOUNT_PATH}:rw",
                     "-e", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}"
                 ])
+            elif language == "javascript":
+                docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:noexec"
+                ])
             elif language == "go":
                 docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:exec,size=1g",
                     "-e", "GOPATH=/go",
                     "-e", "GOCACHE=/tmp/go-cache",
                     "-e", "GOMODCACHE=/tmp/go-modcache",
