@@ -19,6 +19,7 @@ DEFAULT_NODE_IMAGE = "node:20-alpine"
 DEFAULT_GO_IMAGE = "golang:1.22-alpine"
 DEFAULT_C_IMAGE = "gcc:13"
 DEFAULT_CPP_IMAGE = "gcc:13"
+DEFAULT_JAVA_IMAGE = "eclipse-temurin:21-jdk"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
@@ -32,6 +33,7 @@ NODE_IMAGE_PREFIX = "node:"
 GO_IMAGE_PREFIX = "golang:"
 C_IMAGE_PREFIX = "gcc:"
 CPP_IMAGE_PREFIX = "gcc:"
+JAVA_IMAGE_PREFIX = "eclipse-temurin:"
 
 
 @dataclass
@@ -122,6 +124,12 @@ class ContainerManager:
                     raise ValueError(f"Invalid C++ tag: {image_tag}")
                 return f"{CPP_IMAGE_PREFIX}{image_tag}"
             return DEFAULT_CPP_IMAGE
+        elif language == "java":
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid Java tag: {image_tag}")
+                return f"{JAVA_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_JAVA_IMAGE
         else:
             raise ValueError(f"Unsupported language: {language}")
 
@@ -173,6 +181,46 @@ class ContainerManager:
                 raise ValueError(f"Code contains potentially dangerous operations: pattern matched {pattern}")
         
         return code
+
+    def _prepare_java_code(self, code: str) -> Tuple[str, str]:
+        class_pattern = r'(?:public\s+)?class\s+(\w+)'
+        main_method_pattern = r'public\s+static\s+void\s+main\s*\(\s*String\s*\[\s*\]\s*\w+\s*\)'
+        
+        class_matches = list(re.finditer(class_pattern, code))
+        main_method_match = re.search(main_method_pattern, code)
+        
+        class_names = [match.group(1) for match in class_matches]
+        
+        if main_method_match:
+            main_class_start = main_method_match.start()
+            for i, match in enumerate(class_matches):
+                class_start = match.start()
+                next_class_start = class_matches[i + 1].start() if i + 1 < len(class_matches) else len(code)
+                
+                if class_start <= main_class_start < next_class_start:
+                    main_class_name = match.group(1)
+                    file_name = f"{main_class_name}.java"
+                    return file_name, code
+        
+        if "public class" in code:
+            public_class_pattern = r'public\s+class\s+(\w+)'
+            public_class_match = re.search(public_class_pattern, code)
+            if public_class_match:
+                class_name = public_class_match.group(1)
+                file_name = f"{class_name}.java"
+                return file_name, code
+        
+        if class_names:
+            class_name = class_names[0]
+            file_name = f"{class_name}.java"
+            return file_name, code
+        
+        default_code = '''public class Main {
+    public static void main(String[] args) {
+''' + code + '''
+    }
+}'''
+        return "Main.java", default_code
 
     async def create_session(self, language: str, image_tag: Optional[str] = None) -> str:
         async with self._global_lock:
@@ -240,6 +288,18 @@ class ContainerManager:
                     "--ulimit", "nproc=512:512",
                     "--ulimit", "nofile=1024:1024",
                     "--pids-limit", "256"
+                ])
+            elif language == "java":
+                docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:exec,size=2g",
+                    "--ulimit", "nproc=1024:1024",
+                    "--ulimit", "nofile=4096:4096",
+                    "--pids-limit", "512",
+                    "-e", "JAVA_TOOL_OPTIONS=-Xmx512m -Xms256m",
+                    "-e", "GRADLE_USER_HOME=/tmp/gradle",
+                    "-e", "MAVEN_OPTS=-Xmx512m",
+                    "--tmpfs", "/tmp/gradle:size=512m",
+                    "--tmpfs", "/tmp/maven:size=512m"
                 ])
             
             docker_run_cmd.extend([
@@ -428,6 +488,14 @@ class ContainerManager:
                 file_path = sandbox_dir / file_name
                 file_path.write_text(code)
                 compile_and_run = f"g++ -o /sandbox/exec /sandbox/{file_name} 2>&1 && /sandbox/exec"
+                cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
+            elif session.language == "java":
+                file_name, prepared_code = self._prepare_java_code(code)
+                file_path = sandbox_dir / file_name
+                file_path.write_text(prepared_code)
+                
+                class_name = file_name[:-5]  # Remove .java extension
+                compile_and_run = f"cd /sandbox && javac -encoding UTF-8 {file_name} 2>&1 && java -cp /sandbox {class_name}"
                 cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
