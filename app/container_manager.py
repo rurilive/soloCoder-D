@@ -313,7 +313,6 @@ class ContainerManager:
                 "docker", "run",
                 "-d",
                 "--name", container_name,
-                "--network", "none",
                 "--memory", MEMORY_LIMIT,
                 "--cpus", str(CPU_LIMIT),
                 "--ulimit", "nproc=128:128",
@@ -326,6 +325,7 @@ class ContainerManager:
             ]
             
             if language != "lua":
+                docker_run_cmd.extend(["--network", "none"])
                 docker_run_cmd.extend(["--read-only"])
             
             if language == "python":
@@ -378,7 +378,7 @@ class ContainerManager:
                 docker_run_cmd.extend([
                     image_name,
                     "sh", "-c",
-                    "apk add --no-cache lua5.4 > /dev/null 2>&1 && sleep infinity"
+                    "apk add --no-cache lua5.4 && ln -sf /usr/bin/lua5.4 /usr/bin/lua && sleep infinity"
                 ])
             else:
                 docker_run_cmd.extend([
@@ -638,7 +638,7 @@ class ContainerManager:
                 file_name = "exec.lua"
                 file_path = sandbox_dir / file_name
                 file_path.write_text(code)
-                cmd = ["docker", "exec", session.container_id, "lua", f"/sandbox/{file_name}"]
+                cmd = ["docker", "exec", session.container_id, "lua5.4", f"/sandbox/{file_name}"]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
             
