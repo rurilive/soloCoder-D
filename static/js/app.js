@@ -131,6 +131,8 @@ class SandboxApp {
             this.codeEditorEl.value = '# Python 示例代码\nprint("Hello, World!")\n\n# 简单计算\nresult = 1 + 1\nprint(f"1 + 1 = {result}")\n\n# 循环\nfor i in range(5):\n    print(f"迭代 {i}")\n';
         } else if (language === 'javascript') {
             this.codeEditorEl.value = '// JavaScript 示例代码\nconsole.log("Hello, World!");\n\n// 简单计算\nconst result = 1 + 1;\nconsole.log(`1 + 1 = ${result}`);\n\n// 循环\nfor (let i = 0; i < 5; i++) {\n    console.log(`迭代 ${i}`);\n}\n';
+        } else if (language === 'go') {
+            this.codeEditorEl.value = 'package main\n\nimport "fmt"\n\n// Go 示例代码\nfunc main() {\n    fmt.Println("Hello, World!")\n\n    // 简单计算\n    result := 1 + 1\n    fmt.Printf("1 + 1 = %d\\n", result)\n\n    // 循环\n    for i := 0; i < 5; i++ {\n        fmt.Printf("迭代 %d\\n", i)\n    }\n}\n';
         }
     }
 
@@ -212,7 +214,8 @@ class SandboxApp {
     formatLanguage(language) {
         const langMap = {
             'python': 'Python',
-            'javascript': 'JavaScript'
+            'javascript': 'JavaScript',
+            'go': 'Go'
         };
         return langMap[language] || language;
     }
@@ -261,6 +264,16 @@ class SandboxApp {
                         <div class="language-name">JavaScript</div>
                         <div class="language-desc">适用于 Node.js 代码</div>
                     </button>
+                    <button class="language-option" data-language="go">
+                        <div class="language-icon go-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M8 12h8M12 8v8"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">Go</div>
+                        <div class="language-desc">适用于 Go 代码</div>
+                    </button>
                 </div>
             </div>
         `;
@@ -288,14 +301,25 @@ class SandboxApp {
 
     showImageConfigModal(language) {
         const languageName = this.formatLanguage(language);
-        const defaultTag = language === 'python' ? '3.11' : '20';
-        const hintText = language === 'python' 
-            ? 'Python: 如 <code>3.11</code>, <code>3.10-alpine</code>, <code>3.9-slim</code>'
-            : 'Node.js: 如 <code>20</code>, <code>18-alpine</code>, <code>16-slim</code>';
+        let defaultTag, hintText, quickTags;
         
-        const quickTags = language === 'python'
-            ? ['3.11', '3.10', '3.9', '3.11-alpine']
-            : ['20', '18', '16', '20-alpine'];
+        if (language === 'python') {
+            defaultTag = '3.11';
+            hintText = 'Python: 如 <code>3.11</code>, <code>3.10-alpine</code>, <code>3.9-slim</code>';
+            quickTags = ['3.11', '3.10', '3.9', '3.11-alpine'];
+        } else if (language === 'javascript') {
+            defaultTag = '20';
+            hintText = 'Node.js: 如 <code>20</code>, <code>18-alpine</code>, <code>16-slim</code>';
+            quickTags = ['20', '18', '16', '20-alpine'];
+        } else if (language === 'go') {
+            defaultTag = '1.22';
+            hintText = 'Go: 如 <code>1.22</code>, <code>1.21-alpine</code>, <code>1.20</code>';
+            quickTags = ['1.22', '1.21', '1.20', '1.22-alpine'];
+        } else {
+            defaultTag = '';
+            hintText = '留空则使用默认镜像';
+            quickTags = [];
+        }
         
         const modalHtml = `
             <div class="image-config-modal">

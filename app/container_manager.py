@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 CONTAINER_PREFIX = "sandbox-exec-"
 DEFAULT_PYTHON_IMAGE = "python:3.11-alpine3.22"
 DEFAULT_NODE_IMAGE = "node:20-alpine"
+DEFAULT_GO_IMAGE = "golang:1.22-alpine"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
@@ -26,6 +27,7 @@ SITE_PACKAGES_MOUNT_PATH = "/site-packages"
 
 PYTHON_IMAGE_PREFIX = "python:"
 NODE_IMAGE_PREFIX = "node:"
+GO_IMAGE_PREFIX = "golang:"
 
 
 @dataclass
@@ -98,6 +100,12 @@ class ContainerManager:
                     raise ValueError(f"Invalid Node.js tag: {image_tag}")
                 return f"{NODE_IMAGE_PREFIX}{image_tag}"
             return DEFAULT_NODE_IMAGE
+        elif language == "go":
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid Go tag: {image_tag}")
+                return f"{GO_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_GO_IMAGE
         else:
             raise ValueError(f"Unsupported language: {language}")
 
@@ -193,6 +201,17 @@ class ContainerManager:
                 docker_run_cmd.extend([
                     "-v", f"{site_packages_dir}:{SITE_PACKAGES_MOUNT_PATH}:rw",
                     "-e", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}"
+                ])
+            elif language == "go":
+                docker_run_cmd.extend([
+                    "-e", "GOPATH=/go",
+                    "-e", "GOCACHE=/tmp/go-cache",
+                    "-e", "GOMODCACHE=/tmp/go-modcache",
+                    "--tmpfs", "/tmp/go-cache:size=512m",
+                    "--tmpfs", "/tmp/go-modcache:size=512m",
+                    "--ulimit", "nproc=512:512",
+                    "--ulimit", "nofile=1024:1024",
+                    "--pids-limit", "256"
                 ])
             
             docker_run_cmd.extend([
@@ -365,6 +384,11 @@ class ContainerManager:
                 file_path = sandbox_dir / file_name
                 file_path.write_text(code)
                 cmd = ["docker", "exec", session.container_id, "node", f"/sandbox/{file_name}"]
+            elif session.language == "go":
+                file_name = "exec.go"
+                file_path = sandbox_dir / file_name
+                file_path.write_text(code)
+                cmd = ["docker", "exec", session.container_id, "go", "run", f"/sandbox/{file_name}"]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
             
