@@ -21,6 +21,8 @@ MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
 CPU_LIMIT = 0.5
 MAX_PACKAGE_INSTALL_TIME = 120
+SITE_PACKAGES_DIR = "site-packages"
+SITE_PACKAGES_MOUNT_PATH = "/site-packages"
 
 PYTHON_IMAGE_PREFIX = "python:"
 NODE_IMAGE_PREFIX = "node:"
@@ -163,14 +165,18 @@ class ContainerManager:
         
         sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
         sandbox_dir.mkdir(exist_ok=True)
+        
+        site_packages_dir = sandbox_dir / SITE_PACKAGES_DIR
+        site_packages_dir.mkdir(exist_ok=True)
 
         container_id = None
         try:
-            result = await asyncio.create_subprocess_exec(
+            docker_run_cmd = [
                 "docker", "run",
                 "-d",
                 "--name", container_name,
                 "--network", "none",
+                "--read-only",
                 "--memory", MEMORY_LIMIT,
                 "--cpus", str(CPU_LIMIT),
                 "--ulimit", "nproc=128:128",
@@ -180,9 +186,22 @@ class ContainerManager:
                 "--pids-limit", "64",
                 "-v", f"/tmp/sandbox-{session_id[:8]}:/sandbox:rw",
                 "--tmpfs", "/tmp",
-                "--tmpfs", "/var/tmp",
+                "--tmpfs", "/var/tmp"
+            ]
+            
+            if language == "python":
+                docker_run_cmd.extend([
+                    "-v", f"{site_packages_dir}:{SITE_PACKAGES_MOUNT_PATH}:rw",
+                    "-e", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}"
+                ])
+            
+            docker_run_cmd.extend([
                 image_name,
-                "sleep", "infinity",
+                "sleep", "infinity"
+            ])
+            
+            result = await asyncio.create_subprocess_exec(
+                *docker_run_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
@@ -673,73 +692,147 @@ class ContainerManager:
                 full_package = f"{package_name}=={version}"
             else:
                 full_package = package_name
-
-            cmd = [
-                "docker", "exec", session.container_id,
-                "pip3", "install", "--quiet", "--no-cache-dir", "--break-system-packages", full_package
-            ]
-
+            
+            sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
+            site_packages_dir = sandbox_dir / SITE_PACKAGES_DIR
+            
+            if not site_packages_dir.exists():
+                logger.warning(f"Site-packages directory not found, creating: {site_packages_dir}")
+                site_packages_dir.mkdir(exist_ok=True)
+            
+            image_name = self._get_image_name("python")
             try:
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                details = await self.get_container_details(session_id)
+                if details.image:
+                    image_name = details.image
+            except Exception:
+                pass
+            
+            logger.info(f"Installing package '{full_package}' using temp container, image={image_name}")
+            
+            exit_code, output, error = await self._run_temp_install_container(
+                image_name=image_name,
+                site_packages_dir=site_packages_dir,
+                full_package=full_package,
+                timeout=timeout
+            )
+            
+            success = exit_code == 0
+            
+            if success:
+                installed_version = await self._get_installed_version_from_site_packages(
+                    site_packages_dir=site_packages_dir,
+                    package_name=package_name
                 )
-
-                try:
-                    stdout, stderr = await asyncio.wait_for(
-                        proc.communicate(),
-                        timeout=timeout
-                    )
-                    exit_code = proc.returncode
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    await proc.wait()
-                    return PackageInstallResult(
-                        session_id=session_id,
-                        package_name=package_name,
-                        version=version or "",
-                        success=False,
-                        output="",
-                        error=f"Package installation timed out after {timeout} seconds"
-                    )
-
-                output = stdout.decode('utf-8', errors='replace')
-                error = stderr.decode('utf-8', errors='replace')
-                success = exit_code == 0
-
-                if success:
-                    installed_version = await self._get_installed_version(session.container_id, package_name)
-                    await db_manager.add_installed_package(session_id, package_name, installed_version)
-                    await db_manager.update_session_activity(session_id)
-
-                    return PackageInstallResult(
-                        session_id=session_id,
-                        package_name=package_name,
-                        version=installed_version,
-                        success=True,
-                        output=output,
-                        error=error
-                    )
-                else:
-                    return PackageInstallResult(
-                        session_id=session_id,
-                        package_name=package_name,
-                        version=version or "",
-                        success=False,
-                        output=output,
-                        error=error
-                    )
-
-            except Exception as e:
+                
+                if not installed_version:
+                    try:
+                        installed_version = await self._get_installed_version(session.container_id, package_name)
+                    except Exception:
+                        pass
+                
+                if not installed_version:
+                    installed_version = version or ""
+                
+                await db_manager.add_installed_package(session_id, package_name, installed_version)
+                await db_manager.update_session_activity(session_id)
+                
+                logger.info(f"Package '{package_name}' installed successfully, version={installed_version}")
+                
+                return PackageInstallResult(
+                    session_id=session_id,
+                    package_name=package_name,
+                    version=installed_version,
+                    success=True,
+                    output=output,
+                    error=error
+                )
+            else:
+                logger.error(f"Package installation failed for '{package_name}': {error}")
                 return PackageInstallResult(
                     session_id=session_id,
                     package_name=package_name,
                     version=version or "",
                     success=False,
-                    output="",
-                    error=str(e)
+                    output=output,
+                    error=error
                 )
+
+    async def _run_temp_install_container(
+        self,
+        image_name: str,
+        site_packages_dir: Path,
+        full_package: str,
+        timeout: int
+    ) -> Tuple[int, str, str]:
+        install_container_name = f"sandbox-install-{uuid.uuid4().hex[:8]}"
+        
+        try:
+            docker_run_cmd = [
+                "docker", "run",
+                "--rm",
+                "--name", install_container_name,
+                "--memory", MEMORY_LIMIT,
+                "--cpus", str(CPU_LIMIT),
+                "--ulimit", "nproc=128:128",
+                "--ulimit", "nofile=256:256",
+                "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges",
+                "--pids-limit", "64",
+                "-v", f"{site_packages_dir}:{SITE_PACKAGES_MOUNT_PATH}:rw",
+                "-e", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}",
+                "--read-only",
+                "--tmpfs", "/tmp",
+                "--tmpfs", "/var/tmp",
+                image_name,
+                "pip3", "install",
+                "--quiet",
+                "--no-cache-dir",
+                "--break-system-packages",
+                "--target", SITE_PACKAGES_MOUNT_PATH,
+                full_package
+            ]
+            
+            logger.info(f"Starting install container for package: {full_package}")
+            
+            proc = await asyncio.create_subprocess_exec(
+                *docker_run_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=timeout
+                )
+                exit_code = proc.returncode
+                
+                logger.info(f"Install container completed with exit code {exit_code}")
+                return (
+                    exit_code,
+                    stdout.decode('utf-8', errors='replace'),
+                    stderr.decode('utf-8', errors='replace')
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                logger.warning(f"Install container timed out for package: {full_package}")
+                return (-1, "", f"Package installation timed out after {timeout} seconds")
+                
+        except Exception as e:
+            logger.error(f"Error in install container: {e}")
+            return (-1, "", str(e))
+        finally:
+            try:
+                result = await asyncio.create_subprocess_exec(
+                    "docker", "rm", "-f", install_container_name,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await result.communicate()
+            except Exception:
+                pass
 
     async def _get_installed_version(self, container_id: str, package_name: str) -> str:
         try:
@@ -759,6 +852,38 @@ class ContainerManager:
             return ""
         except Exception:
             return ""
+    
+    async def _get_installed_version_from_site_packages(
+        self,
+        site_packages_dir: Path,
+        package_name: str
+    ) -> str:
+        try:
+            import importlib.metadata
+            import sys
+            
+            original_path = sys.path.copy()
+            try:
+                sys.path.insert(0, str(site_packages_dir))
+                version = importlib.metadata.version(package_name)
+                return version
+            except importlib.metadata.PackageNotFoundError:
+                dir_contents = list(site_packages_dir.glob(f"{package_name.replace('-', '_')}*"))
+                dir_contents += list(site_packages_dir.glob(f"{package_name}*"))
+                
+                for item in dir_contents:
+                    if item.is_dir() and item.name.endswith('.dist-info'):
+                        metadata_file = item / "METADATA"
+                        if metadata_file.exists():
+                            content = metadata_file.read_text()
+                            for line in content.split('\n'):
+                                if line.startswith('Version:'):
+                                    return line.split(':', 1)[1].strip()
+                return ""
+            finally:
+                sys.path = original_path
+        except Exception:
+            return ""
 
     async def list_installed_packages(self, session_id: str, refresh: bool = False) -> PackageListResult:
         session = await db_manager.get_session(session_id)
@@ -774,6 +899,35 @@ class ContainerManager:
                 packages = [{"name": pkg.name, "version": pkg.version} for pkg in db_packages]
                 return PackageListResult(session_id=session_id, packages=packages)
 
+        packages_dict = {}
+        
+        sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
+        site_packages_dir = sandbox_dir / SITE_PACKAGES_DIR
+        
+        if site_packages_dir.exists():
+            try:
+                for item in site_packages_dir.iterdir():
+                    if item.is_dir() and item.name.endswith('.dist-info'):
+                        try:
+                            metadata_file = item / "METADATA"
+                            if metadata_file.exists():
+                                content = metadata_file.read_text()
+                                name = None
+                                version = None
+                                for line in content.split('\n'):
+                                    if line.startswith('Name:'):
+                                        name = line.split(':', 1)[1].strip()
+                                    elif line.startswith('Version:'):
+                                        version = line.split(':', 1)[1].strip()
+                                    if name and version:
+                                        break
+                                if name and version:
+                                    packages_dict[name] = version
+                        except Exception as e:
+                            logger.warning(f"Failed to read metadata from {item}: {e}")
+            except Exception as e:
+                logger.error(f"Failed to scan site-packages directory: {e}")
+
         try:
             result = await asyncio.create_subprocess_exec(
                 "docker", "exec", session.container_id,
@@ -783,24 +937,35 @@ class ContainerManager:
             )
             stdout, stderr = await result.communicate()
 
-            if result.returncode != 0:
-                raise Exception(f"Failed to list packages: {stderr.decode()}")
+            if result.returncode == 0:
+                output = stdout.decode('utf-8', errors='replace')
+                for line in output.strip().split('\n'):
+                    if line and '==' in line:
+                        name, version = line.split('==', 1)
+                        if name not in packages_dict:
+                            packages_dict[name] = version
 
-            output = stdout.decode('utf-8', errors='replace')
             packages = []
-
-            for line in output.strip().split('\n'):
-                if line and '==' in line:
-                    name, version = line.split('==', 1)
-                    packages.append({"name": name, "version": version})
-                    await db_manager.add_installed_package(session_id, name, version)
+            for name, version in packages_dict.items():
+                packages.append({"name": name, "version": version})
+                await db_manager.add_installed_package(session_id, name, version)
 
             await db_manager.update_session_activity(session_id)
 
+            packages.sort(key=lambda x: x["name"].lower())
             return PackageListResult(session_id=session_id, packages=packages)
 
         except Exception as e:
             logger.error(f"Failed to list packages for session {session_id}: {e}")
+            
+            packages = []
+            for name, version in packages_dict.items():
+                packages.append({"name": name, "version": version})
+            
+            if packages:
+                packages.sort(key=lambda x: x["name"].lower())
+                return PackageListResult(session_id=session_id, packages=packages)
+            
             raise
 
     async def uninstall_package(
@@ -825,54 +990,95 @@ class ContainerManager:
             self._session_locks[session_id] = lock
 
         async with lock:
-            cmd = [
-                "docker", "exec", session.container_id,
-                "pip3", "uninstall", "-y", "--quiet", "--break-system-packages", package_name
-            ]
-
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+            sandbox_dir = Path(f"/tmp/sandbox-{session_id[:8]}")
+            site_packages_dir = sandbox_dir / SITE_PACKAGES_DIR
+            
+            if not site_packages_dir.exists():
+                return PackageInstallResult(
+                    session_id=session_id,
+                    package_name=package_name,
+                    version="",
+                    success=False,
+                    output="",
+                    error=f"Site-packages directory not found: {site_packages_dir}"
                 )
-
+            
+            import shutil
+            
+            package_name_lower = package_name.lower().replace('-', '_')
+            package_name_original = package_name
+            
+            removed_count = 0
+            errors = []
+            
+            try:
+                for item in site_packages_dir.iterdir():
+                    if not item.is_dir():
+                        continue
+                    
+                    item_name_lower = item.name.lower().replace('-', '_')
+                    
+                    if item_name_lower == package_name_lower or \
+                       item_name_lower.startswith(package_name_lower + '-') or \
+                       item_name_lower.startswith(package_name_lower + '.') or \
+                       item_name_lower.endswith('.dist-info') and item_name_lower.startswith(package_name_lower + '-') or \
+                       item_name_lower.endswith('.egg-info') and item_name_lower.startswith(package_name_lower + '-'):
+                        
+                        base_name = item_name_lower
+                        for suffix in ['.dist-info', '.egg-info']:
+                            if base_name.endswith(suffix):
+                                base_name = base_name[:-len(suffix)]
+                                break
+                        
+                        if base_name == package_name_lower or base_name.startswith(package_name_lower + '-'):
+                            try:
+                                if item.is_dir():
+                                    shutil.rmtree(item)
+                                else:
+                                    item.unlink()
+                                removed_count += 1
+                                logger.info(f"Removed package directory: {item}")
+                            except Exception as e:
+                                errors.append(f"Failed to remove {item}: {e}")
+                                logger.error(f"Failed to remove {item}: {e}")
+                
                 try:
-                    stdout, stderr = await asyncio.wait_for(
-                        proc.communicate(),
-                        timeout=timeout
+                    for pycache_dir in site_packages_dir.rglob('__pycache__'):
+                        if package_name_lower in str(pycache_dir).lower():
+                            try:
+                                shutil.rmtree(pycache_dir)
+                                removed_count += 1
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                
+                if removed_count > 0:
+                    await db_manager.remove_installed_package(session_id, package_name)
+                    await db_manager.update_session_activity(session_id)
+                    
+                    logger.info(f"Uninstalled package '{package_name}', removed {removed_count} items")
+                    
+                    return PackageInstallResult(
+                        session_id=session_id,
+                        package_name=package_name,
+                        version="",
+                        success=True,
+                        output=f"Removed {removed_count} items",
+                        error="; ".join(errors) if errors else ""
                     )
-                    exit_code = proc.returncode
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    await proc.wait()
+                else:
                     return PackageInstallResult(
                         session_id=session_id,
                         package_name=package_name,
                         version="",
                         success=False,
                         output="",
-                        error=f"Package uninstallation timed out after {timeout} seconds"
+                        error=f"Package '{package_name}' not found in site-packages"
                     )
-
-                output = stdout.decode('utf-8', errors='replace')
-                error = stderr.decode('utf-8', errors='replace')
-                success = exit_code == 0
-
-                if success:
-                    await db_manager.remove_installed_package(session_id, package_name)
-                    await db_manager.update_session_activity(session_id)
-
-                return PackageInstallResult(
-                    session_id=session_id,
-                    package_name=package_name,
-                    version="",
-                    success=success,
-                    output=output,
-                    error=error
-                )
-
+                    
             except Exception as e:
+                logger.error(f"Error during package uninstallation: {e}")
                 return PackageInstallResult(
                     session_id=session_id,
                     package_name=package_name,
