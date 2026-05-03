@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import re
 import subprocess
@@ -27,6 +28,8 @@ CPU_LIMIT = 0.5
 MAX_PACKAGE_INSTALL_TIME = 120
 SITE_PACKAGES_DIR = "site-packages"
 SITE_PACKAGES_MOUNT_PATH = "/site-packages"
+JAVA_COMPILE_CACHE_DIR = "java_cache"
+JAVA_COMPILE_CACHE_MAX_SIZE = 100
 
 PYTHON_IMAGE_PREFIX = "python:"
 NODE_IMAGE_PREFIX = "node:"
@@ -92,6 +95,8 @@ class ContainerManager:
     def __init__(self):
         self._session_locks: Dict[str, asyncio.Lock] = {}
         self._global_lock = asyncio.Lock()
+        self._java_compile_cache: Dict[str, Tuple[str, str, datetime]] = {}  # hash -> (file_name, class_name, timestamp)
+        self._java_cache_lock = asyncio.Lock()
 
     def _get_image_name(self, language: str, image_tag: Optional[str] = None) -> str:
         if language == "python":
@@ -221,6 +226,28 @@ class ContainerManager:
     }
 }'''
         return "Main.java", default_code
+
+    def _compute_java_code_hash(self, code: str) -> str:
+        return hashlib.sha256(code.encode('utf-8')).hexdigest()
+
+    async def _get_java_cache(self, code_hash: str) -> Optional[Tuple[str, str]]:
+        async with self._java_cache_lock:
+            if code_hash in self._java_compile_cache:
+                file_name, class_name, timestamp = self._java_compile_cache[code_hash]
+                return file_name, class_name
+            return None
+
+    async def _set_java_cache(self, code_hash: str, file_name: str, class_name: str) -> None:
+        async with self._java_cache_lock:
+            self._java_compile_cache[code_hash] = (file_name, class_name, datetime.now(timezone.utc))
+            if len(self._java_compile_cache) > JAVA_COMPILE_CACHE_MAX_SIZE:
+                sorted_cache = sorted(self._java_compile_cache.items(), key=lambda x: x[1][2])
+                for key, _ in sorted_cache[:len(sorted_cache) - JAVA_COMPILE_CACHE_MAX_SIZE // 2]:
+                    del self._java_compile_cache[key]
+
+    async def _clear_java_cache(self) -> None:
+        async with self._java_cache_lock:
+            self._java_compile_cache.clear()
 
     async def create_session(self, language: str, image_tag: Optional[str] = None) -> str:
         async with self._global_lock:
@@ -491,11 +518,12 @@ class ContainerManager:
                 cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
             elif session.language == "java":
                 file_name, prepared_code = self._prepare_java_code(code)
-                file_path = sandbox_dir / file_name
-                file_path.write_text(prepared_code)
+                code_hash = self._compute_java_code_hash(prepared_code)
+                class_name = file_name[:-5]
                 
-                class_name = file_name[:-5]  # Remove .java extension
-                compile_and_run = f"cd /sandbox && javac -encoding UTF-8 {file_name} 2>&1 && java -cp /sandbox {class_name}"
+                jvm_opts = "-XX:+TieredCompilation -XX:TieredStopAtLevel=1 -Xverify:none"
+                
+                compile_and_run = f"cat > /tmp/{file_name} << 'JAVA_EOF'\n{prepared_code}\nJAVA_EOF\ncd /tmp && javac -encoding UTF-8 -O {file_name} 2>&1 && java {jvm_opts} -cp /tmp {class_name}"
                 cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
