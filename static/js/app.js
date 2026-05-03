@@ -19,7 +19,6 @@ class SandboxApp {
     initElements() {
         this.sessionListEl = document.getElementById('sessionList');
         this.currentSessionEl = document.getElementById('currentSession');
-        this.languageSelectEl = document.getElementById('languageSelect');
         this.codeEditorEl = document.getElementById('codeEditor');
         this.outputContentEl = document.getElementById('outputContent');
         this.runBtn = document.getElementById('runBtn');
@@ -39,8 +38,6 @@ class SandboxApp {
 
         this.tabBtns = document.querySelectorAll('.tab-btn');
         this.tabContents = document.querySelectorAll('.tab-content');
-
-        this.imageTagInput = document.getElementById('imageTagInput');
 
         this.refreshStatsBtn = document.getElementById('refreshStatsBtn');
         this.containerDetailsEl = document.getElementById('containerDetails');
@@ -89,8 +86,6 @@ class SandboxApp {
             }
         });
 
-        this.languageSelectEl.addEventListener('change', () => this.loadDefaultCode());
-
         this.tabBtns.forEach(btn => {
             btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
         });
@@ -131,8 +126,7 @@ class SandboxApp {
         }
     }
 
-    loadDefaultCode() {
-        const language = this.languageSelectEl.value;
+    loadDefaultCode(language = 'python') {
         if (language === 'python') {
             this.codeEditorEl.value = '# Python 示例代码\nprint("Hello, World!")\n\n# 简单计算\nresult = 1 + 1\nprint(f"1 + 1 = {result}")\n\n# 循环\nfor i in range(5):\n    print(f"迭代 {i}")\n';
         } else if (language === 'javascript') {
@@ -446,7 +440,7 @@ class SandboxApp {
         this.currentSession = session;
         this.currentSessionEl.innerHTML = `<span class="session-id">${sessionId.substring(0, 12)}...</span>`;
         
-        this.languageSelectEl.value = session.language;
+        this.loadDefaultCode(session.language);
         
         const isRunning = session.status === 'running';
         const isPaused = session.status === 'paused';
