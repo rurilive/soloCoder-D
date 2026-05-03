@@ -171,7 +171,6 @@ class ContainerManager:
                 "-d",
                 "--name", container_name,
                 "--network", "none",
-                "--read-only",
                 "--memory", MEMORY_LIMIT,
                 "--cpus", str(CPU_LIMIT),
                 "--ulimit", "nproc=128:128",
