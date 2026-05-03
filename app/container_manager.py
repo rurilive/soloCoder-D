@@ -354,7 +354,12 @@ class ContainerManager:
                 file_name = "exec.py"
                 file_path = sandbox_dir / file_name
                 file_path.write_text(code)
-                cmd = ["docker", "exec", session.container_id, "python3", "-u", f"/sandbox/{file_name}"]
+                cmd = [
+                    "docker", "exec",
+                    "--env", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}",
+                    session.container_id,
+                    "python3", "-u", f"/sandbox/{file_name}"
+                ]
             elif session.language == "javascript":
                 file_name = "exec.js"
                 file_path = sandbox_dir / file_name
@@ -844,7 +849,9 @@ echo "Installation completed successfully"
     async def _get_installed_version(self, container_id: str, package_name: str) -> str:
         try:
             result = await asyncio.create_subprocess_exec(
-                "docker", "exec", container_id,
+                "docker", "exec",
+                "--env", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}",
+                container_id,
                 "pip3", "show", package_name,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
@@ -937,7 +944,9 @@ echo "Installation completed successfully"
 
         try:
             result = await asyncio.create_subprocess_exec(
-                "docker", "exec", session.container_id,
+                "docker", "exec",
+                "--env", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}",
+                session.container_id,
                 "pip3", "list", "--format=freeze",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
