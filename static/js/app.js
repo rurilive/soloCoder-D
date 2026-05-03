@@ -346,12 +346,12 @@ class SandboxApp {
             quickTags = ['1.22', '1.21', '1.20', '1.22-alpine'];
         } else if (language === 'c') {
             defaultTag = '13';
-            hintText = 'GCC: 如 <code>13</code>, <code>12-alpine</code>, <code>11</code>';
-            quickTags = ['13', '12', '11', '13-alpine'];
+            hintText = 'GCC: 如 <code>13</code>, <code>12</code>, <code>11</code>, <code>latest</code>';
+            quickTags = ['13', '12', '11', 'latest'];
         } else if (language === 'cpp' || language === 'c++') {
             defaultTag = '13';
-            hintText = 'GCC (C++): 如 <code>13</code>, <code>12-alpine</code>, <code>11</code>';
-            quickTags = ['13', '12', '11', '13-alpine'];
+            hintText = 'GCC (C++): 如 <code>13</code>, <code>12</code>, <code>11</code>, <code>latest</code>';
+            quickTags = ['13', '12', '11', 'latest'];
         } else {
             defaultTag = '';
             hintText = '留空则使用默认镜像';

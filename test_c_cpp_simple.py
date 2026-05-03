@@ -11,8 +11,8 @@ import sys
 DEFAULT_PYTHON_IMAGE = "python:3.11-alpine3.22"
 DEFAULT_NODE_IMAGE = "node:20-alpine"
 DEFAULT_GO_IMAGE = "golang:1.22-alpine"
-DEFAULT_C_IMAGE = "gcc:13-alpine"
-DEFAULT_CPP_IMAGE = "gcc:13-alpine"
+DEFAULT_C_IMAGE = "gcc:13"
+DEFAULT_CPP_IMAGE = "gcc:13"
 
 PYTHON_IMAGE_PREFIX = "python:"
 NODE_IMAGE_PREFIX = "node:"
