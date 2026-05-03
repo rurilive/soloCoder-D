@@ -133,6 +133,10 @@ class SandboxApp {
             this.codeEditorEl.value = '// JavaScript 示例代码\nconsole.log("Hello, World!");\n\n// 简单计算\nconst result = 1 + 1;\nconsole.log(`1 + 1 = ${result}`);\n\n// 循环\nfor (let i = 0; i < 5; i++) {\n    console.log(`迭代 ${i}`);\n}\n';
         } else if (language === 'go') {
             this.codeEditorEl.value = 'package main\n\nimport "fmt"\n\n// Go 示例代码\nfunc main() {\n    fmt.Println("Hello, World!")\n\n    // 简单计算\n    result := 1 + 1\n    fmt.Printf("1 + 1 = %d\\n", result)\n\n    // 循环\n    for i := 0; i < 5; i++ {\n        fmt.Printf("迭代 %d\\n", i)\n    }\n}\n';
+        } else if (language === 'c') {
+            this.codeEditorEl.value = '#include <stdio.h>\n\n// C 示例代码\nint main() {\n    printf("Hello, World!\\n");\n\n    // 简单计算\n    int result = 1 + 1;\n    printf("1 + 1 = %d\\n", result);\n\n    // 循环\n    for (int i = 0; i < 5; i++) {\n        printf("迭代 %d\\n", i);\n    }\n\n    return 0;\n}\n';
+        } else if (language === 'cpp' || language === 'c++') {
+            this.codeEditorEl.value = '#include <iostream>\nusing namespace std;\n\n// C++ 示例代码\nint main() {\n    cout << "Hello, World!" << endl;\n\n    // 简单计算\n    int result = 1 + 1;\n    cout << "1 + 1 = " << result << endl;\n\n    // 循环\n    for (int i = 0; i < 5; i++) {\n        cout << "迭代 " << i << endl;\n    }\n\n    return 0;\n}\n';
         }
     }
 
@@ -215,7 +219,10 @@ class SandboxApp {
         const langMap = {
             'python': 'Python',
             'javascript': 'JavaScript',
-            'go': 'Go'
+            'go': 'Go',
+            'c': 'C',
+            'cpp': 'C++',
+            'c++': 'C++'
         };
         return langMap[language] || language;
     }
@@ -274,6 +281,28 @@ class SandboxApp {
                         <div class="language-name">Go</div>
                         <div class="language-desc">适用于 Go 代码</div>
                     </button>
+                    <button class="language-option" data-language="c">
+                        <div class="language-icon c-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M10 16c-2.21 0-4-1.79-4-4s1.79-4 4-4h4v3h-4c-.55 0-1 .45-1 1s.45 1 1 1h4v3h-4"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">C</div>
+                        <div class="language-desc">适用于 C 代码</div>
+                    </button>
+                    <button class="language-option" data-language="cpp">
+                        <div class="language-icon cpp-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M10 16c-2.21 0-4-1.79-4-4s1.79-4 4-4h4v3h-4c-.55 0-1 .45-1 1s.45 1 1 1h4v3h-4"/>
+                                <path d="M15 10.5v3"/>
+                                <path d="M13.5 12h3"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">C++</div>
+                        <div class="language-desc">适用于 C++ 代码</div>
+                    </button>
                 </div>
             </div>
         `;
@@ -315,6 +344,14 @@ class SandboxApp {
             defaultTag = '1.22';
             hintText = 'Go: 如 <code>1.22</code>, <code>1.21-alpine</code>, <code>1.20</code>';
             quickTags = ['1.22', '1.21', '1.20', '1.22-alpine'];
+        } else if (language === 'c') {
+            defaultTag = '13';
+            hintText = 'GCC: 如 <code>13</code>, <code>12-alpine</code>, <code>11</code>';
+            quickTags = ['13', '12', '11', '13-alpine'];
+        } else if (language === 'cpp' || language === 'c++') {
+            defaultTag = '13';
+            hintText = 'GCC (C++): 如 <code>13</code>, <code>12-alpine</code>, <code>11</code>';
+            quickTags = ['13', '12', '11', '13-alpine'];
         } else {
             defaultTag = '';
             hintText = '留空则使用默认镜像';
