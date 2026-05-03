@@ -17,6 +17,8 @@ CONTAINER_PREFIX = "sandbox-exec-"
 DEFAULT_PYTHON_IMAGE = "python:3.11-alpine3.22"
 DEFAULT_NODE_IMAGE = "node:20-alpine"
 DEFAULT_GO_IMAGE = "golang:1.22-alpine"
+DEFAULT_C_IMAGE = "gcc:13-alpine"
+DEFAULT_CPP_IMAGE = "gcc:13-alpine"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
@@ -28,6 +30,8 @@ SITE_PACKAGES_MOUNT_PATH = "/site-packages"
 PYTHON_IMAGE_PREFIX = "python:"
 NODE_IMAGE_PREFIX = "node:"
 GO_IMAGE_PREFIX = "golang:"
+C_IMAGE_PREFIX = "gcc:"
+CPP_IMAGE_PREFIX = "gcc:"
 
 
 @dataclass
@@ -106,6 +110,18 @@ class ContainerManager:
                     raise ValueError(f"Invalid Go tag: {image_tag}")
                 return f"{GO_IMAGE_PREFIX}{image_tag}"
             return DEFAULT_GO_IMAGE
+        elif language == "c":
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid C tag: {image_tag}")
+                return f"{C_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_C_IMAGE
+        elif language == "cpp" or language == "c++":
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid C++ tag: {image_tag}")
+                return f"{CPP_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_CPP_IMAGE
         else:
             raise ValueError(f"Unsupported language: {language}")
 
@@ -214,6 +230,13 @@ class ContainerManager:
                     "-e", "GOMODCACHE=/tmp/go-modcache",
                     "--tmpfs", "/tmp/go-cache:size=512m",
                     "--tmpfs", "/tmp/go-modcache:size=512m",
+                    "--ulimit", "nproc=512:512",
+                    "--ulimit", "nofile=1024:1024",
+                    "--pids-limit", "256"
+                ])
+            elif language == "c" or language == "cpp" or language == "c++":
+                docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:exec,size=1g",
                     "--ulimit", "nproc=512:512",
                     "--ulimit", "nofile=1024:1024",
                     "--pids-limit", "256"
@@ -394,6 +417,18 @@ class ContainerManager:
                 file_path = sandbox_dir / file_name
                 file_path.write_text(code)
                 cmd = ["docker", "exec", session.container_id, "go", "run", f"/sandbox/{file_name}"]
+            elif session.language == "c":
+                file_name = "exec.c"
+                file_path = sandbox_dir / file_name
+                file_path.write_text(code)
+                compile_and_run = f"gcc -o /sandbox/exec /sandbox/{file_name} 2>&1 && /sandbox/exec"
+                cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
+            elif session.language == "cpp" or session.language == "c++":
+                file_name = "exec.cpp"
+                file_path = sandbox_dir / file_name
+                file_path.write_text(code)
+                compile_and_run = f"g++ -o /sandbox/exec /sandbox/{file_name} 2>&1 && /sandbox/exec"
+                cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
             
