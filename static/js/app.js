@@ -139,6 +139,8 @@ class SandboxApp {
             this.codeEditorEl.value = '#include <iostream>\nusing namespace std;\n\n// C++ 示例代码\nint main() {\n    cout << "Hello, World!" << endl;\n\n    // 简单计算\n    int result = 1 + 1;\n    cout << "1 + 1 = " << result << endl;\n\n    // 循环\n    for (int i = 0; i < 5; i++) {\n        cout << "迭代 " << i << endl;\n    }\n\n    return 0;\n}\n';
         } else if (language === 'java') {
             this.codeEditorEl.value = '// Java 示例代码\n// 支持完整类定义或简单代码片段\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n\n        // 简单计算\n        int result = 1 + 1;\n        System.out.println("1 + 1 = " + result);\n\n        // 循环\n        for (int i = 0; i < 5; i++) {\n            System.out.println("迭代 " + i);\n        }\n    }\n}\n';
+        } else if (language === 'lua') {
+            this.codeEditorEl.value = '-- Lua 示例代码\nprint("Hello, World!")\n\n-- 简单计算\nlocal result = 1 + 1\nprint("1 + 1 = " .. result)\n\n-- 循环\nfor i = 0, 4 do\n    print("迭代 " .. i)\nend\n\n-- 表（Table）示例\nlocal fruits = {"apple", "banana", "cherry"}\nfor index, fruit in ipairs(fruits) do\n    print(index .. ": " .. fruit)\nend\n';
         }
     }
 
@@ -225,7 +227,8 @@ class SandboxApp {
             'c': 'C',
             'cpp': 'C++',
             'c++': 'C++',
-            'java': 'Java'
+            'java': 'Java',
+            'lua': 'Lua'
         };
         return langMap[language] || language;
     }
@@ -317,6 +320,16 @@ class SandboxApp {
                         <div class="language-name">Java</div>
                         <div class="language-desc">适用于 Java 代码及 Java Web</div>
                     </button>
+                    <button class="language-option" data-language="lua">
+                        <div class="language-icon lua-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M8 9h8M8 12h8M8 15h5"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">Lua</div>
+                        <div class="language-desc">适用于 Lua 脚本代码</div>
+                    </button>
                 </div>
             </div>
         `;
@@ -370,6 +383,10 @@ class SandboxApp {
             defaultTag = '21-jdk';
             hintText = 'Eclipse Temurin (OpenJDK): 如 <code>21-jdk</code>, <code>17-jdk</code>, <code>11-jdk</code>, <code>21-jdk-alpine</code>';
             quickTags = ['21-jdk', '17-jdk', '11-jdk', '21-jdk-alpine'];
+        } else if (language === 'lua') {
+            defaultTag = '5.4';
+            hintText = 'Lua: 如 <code>5.4</code>, <code>5.3</code>, <code>5.2</code>, <code>5.4-alpine</code>';
+            quickTags = ['5.4', '5.3', '5.2', '5.4-alpine'];
         } else {
             defaultTag = '';
             hintText = '留空则使用默认镜像';
