@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
 
-from app.database import db_manager, ContainerSession, InstalledPackage
+from app.database import db_manager, ContainerSession, InstalledPackage, AuditLog
 
 logger = logging.getLogger(__name__)
 
@@ -503,12 +503,56 @@ class ContainerManager:
             logger.warning(f"Failed to cleanup orphaned containers: {e}")
             return 0
 
+    def _compute_code_hash(self, code: str) -> str:
+        return hashlib.sha256(code.encode('utf-8')).hexdigest()
+
+    def _get_code_preview(self, code: str, max_length: int = 200) -> str:
+        if len(code) <= max_length:
+            return code
+        return code[:max_length] + "..."
+
+    async def _log_audit(
+        self,
+        session_id: str,
+        language: str,
+        action: str,
+        code: str,
+        output: str,
+        error: str,
+        exit_code: int,
+        execution_time_ms: int
+    ) -> None:
+        try:
+            code_hash = self._compute_code_hash(code)
+            code_preview = self._get_code_preview(code)
+            
+            output_preview = output[:500] if len(output) > 500 else output
+            error_preview = error[:500] if len(error) > 500 else error
+            
+            await db_manager.create_audit_log(
+                session_id=session_id,
+                language=language,
+                action=action,
+                code_hash=code_hash,
+                code_preview=code_preview,
+                output=output_preview,
+                error=error_preview,
+                exit_code=exit_code,
+                execution_time_ms=execution_time_ms
+            )
+            
+            logger.info(f"Audit log created for session {session_id}, language={language}, exit_code={exit_code}")
+        except Exception as e:
+            logger.error(f"Failed to create audit log: {e}")
+
     async def execute_code(
         self,
         session_id: str,
         code: str,
         timeout: int = MAX_EXECUTION_TIME
     ) -> ExecutionResult:
+        import time
+        
         session = await db_manager.get_session(session_id)
         if not session:
             raise ValueError(f"Session {session_id} not found")
@@ -516,9 +560,22 @@ class ContainerManager:
         if session.status != "running":
             raise ValueError(f"Session {session_id} is not running")
         
+        original_code = code
+        
         try:
             code = self._sanitize_code(code, session.language)
         except ValueError as e:
+            if session.language == "lua":
+                await self._log_audit(
+                    session_id=session_id,
+                    language=session.language,
+                    action="execute_blocked",
+                    code=original_code,
+                    output="",
+                    error=str(e),
+                    exit_code=1,
+                    execution_time_ms=0
+                )
             return ExecutionResult(
                 session_id=session_id,
                 output="",
@@ -586,6 +643,8 @@ class ContainerManager:
                 raise ValueError(f"Unsupported language: {session.language}")
             
             try:
+                start_time = time.time()
+                
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -601,6 +660,20 @@ class ContainerManager:
                 except asyncio.TimeoutError:
                     proc.kill()
                     await proc.wait()
+                    execution_time_ms = int((time.time() - start_time) * 1000)
+                    
+                    if session.language == "lua":
+                        await self._log_audit(
+                            session_id=session_id,
+                            language=session.language,
+                            action="execute_timeout",
+                            code=original_code,
+                            output="",
+                            error=f"Execution timed out after {timeout} seconds",
+                            exit_code=-1,
+                            execution_time_ms=execution_time_ms
+                        )
+                    
                     return ExecutionResult(
                         session_id=session_id,
                         output="",
@@ -608,6 +681,8 @@ class ContainerManager:
                         exit_code=-1,
                         is_running=True
                     )
+                
+                execution_time_ms = int((time.time() - start_time) * 1000)
                 
                 await db_manager.update_session_activity(session_id)
                 
@@ -621,6 +696,18 @@ class ContainerManager:
                     filtered_stdout = stdout_str
                     filtered_stderr = stderr_str
                 
+                if session.language == "lua":
+                    await self._log_audit(
+                        session_id=session_id,
+                        language=session.language,
+                        action="execute",
+                        code=original_code,
+                        output=filtered_stdout,
+                        error=filtered_stderr,
+                        exit_code=exit_code if exit_code is not None else -1,
+                        execution_time_ms=execution_time_ms
+                    )
+                
                 return ExecutionResult(
                     session_id=session_id,
                     output=filtered_stdout,
@@ -630,6 +717,20 @@ class ContainerManager:
                 )
                 
             except Exception as e:
+                execution_time_ms = int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0
+                
+                if session.language == "lua":
+                    await self._log_audit(
+                        session_id=session_id,
+                        language=session.language,
+                        action="execute_error",
+                        code=original_code,
+                        output="",
+                        error=str(e),
+                        exit_code=-1,
+                        execution_time_ms=execution_time_ms
+                    )
+                
                 return ExecutionResult(
                     session_id=session_id,
                     output="",
