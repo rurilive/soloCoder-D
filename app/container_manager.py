@@ -21,6 +21,7 @@ DEFAULT_GO_IMAGE = "golang:1.22-alpine"
 DEFAULT_C_IMAGE = "gcc:13"
 DEFAULT_CPP_IMAGE = "gcc:13"
 DEFAULT_JAVA_IMAGE = "eclipse-temurin:21-jdk"
+DEFAULT_LUA_IMAGE = "lua:5.4-alpine"
 MAX_EXECUTION_TIME = 300
 MAX_CONTAINERS = 10
 MEMORY_LIMIT = "256m"
@@ -37,6 +38,7 @@ GO_IMAGE_PREFIX = "golang:"
 C_IMAGE_PREFIX = "gcc:"
 CPP_IMAGE_PREFIX = "gcc:"
 JAVA_IMAGE_PREFIX = "eclipse-temurin:"
+LUA_IMAGE_PREFIX = "lua:"
 
 
 @dataclass
@@ -135,6 +137,12 @@ class ContainerManager:
                     raise ValueError(f"Invalid Java tag: {image_tag}")
                 return f"{JAVA_IMAGE_PREFIX}{image_tag}"
             return DEFAULT_JAVA_IMAGE
+        elif language == "lua":
+            if image_tag:
+                if not re.match(r'^[\w.-]+$', image_tag):
+                    raise ValueError(f"Invalid Lua tag: {image_tag}")
+                return f"{LUA_IMAGE_PREFIX}{image_tag}"
+            return DEFAULT_LUA_IMAGE
         else:
             raise ValueError(f"Unsupported language: {language}")
 
@@ -359,6 +367,10 @@ class ContainerManager:
                     "--tmpfs", "/tmp/gradle:size=512m",
                     "--tmpfs", "/tmp/maven:size=512m"
                 ])
+            elif language == "lua":
+                docker_run_cmd.extend([
+                    "--tmpfs", "/tmp:noexec"
+                ])
             
             docker_run_cmd.extend([
                 image_name,
@@ -556,6 +568,11 @@ class ContainerManager:
                 
                 compile_and_run = f"cat > /tmp/{file_name} << 'JAVA_EOF'\n{prepared_code}\nJAVA_EOF\ncd /tmp && javac -encoding UTF-8 -O {file_name} 2>&1 && java {jvm_opts} -cp /tmp {class_name}"
                 cmd = ["docker", "exec", session.container_id, "sh", "-c", compile_and_run]
+            elif session.language == "lua":
+                file_name = "exec.lua"
+                file_path = sandbox_dir / file_name
+                file_path.write_text(code)
+                cmd = ["docker", "exec", session.container_id, "lua", f"/sandbox/{file_name}"]
             else:
                 raise ValueError(f"Unsupported language: {session.language}")
             
