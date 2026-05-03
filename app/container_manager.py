@@ -481,7 +481,9 @@ class ContainerManager:
             container_name = data.get("Name", "").lstrip("/")
             image = data.get("Config", {}).get("Image", "")
             status = data.get("State", {}).get("Status", "")
-            created_at = datetime.fromisoformat(data.get("Created", "").replace("Z", "+00:00"))
+            created_str = data.get("Created", "").replace("Z", "+00:00")
+            created_str = re.sub(r'(\.\d{6})\d+([+-]\d{2}:\d{2})$', r'\1\2', created_str)
+            created_at = datetime.fromisoformat(created_str)
 
             ports = []
             port_data = data.get("NetworkSettings", {}).get("Ports", {})
