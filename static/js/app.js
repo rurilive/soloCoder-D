@@ -137,6 +137,8 @@ class SandboxApp {
             this.codeEditorEl.value = '#include <stdio.h>\n\n// C 示例代码\nint main() {\n    printf("Hello, World!\\n");\n\n    // 简单计算\n    int result = 1 + 1;\n    printf("1 + 1 = %d\\n", result);\n\n    // 循环\n    for (int i = 0; i < 5; i++) {\n        printf("迭代 %d\\n", i);\n    }\n\n    return 0;\n}\n';
         } else if (language === 'cpp' || language === 'c++') {
             this.codeEditorEl.value = '#include <iostream>\nusing namespace std;\n\n// C++ 示例代码\nint main() {\n    cout << "Hello, World!" << endl;\n\n    // 简单计算\n    int result = 1 + 1;\n    cout << "1 + 1 = " << result << endl;\n\n    // 循环\n    for (int i = 0; i < 5; i++) {\n        cout << "迭代 " << i << endl;\n    }\n\n    return 0;\n}\n';
+        } else if (language === 'java') {
+            this.codeEditorEl.value = '// Java 示例代码\n// 支持完整类定义或简单代码片段\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n\n        // 简单计算\n        int result = 1 + 1;\n        System.out.println("1 + 1 = " + result);\n\n        // 循环\n        for (int i = 0; i < 5; i++) {\n            System.out.println("迭代 " + i);\n        }\n    }\n}\n';
         }
     }
 
@@ -222,7 +224,8 @@ class SandboxApp {
             'go': 'Go',
             'c': 'C',
             'cpp': 'C++',
-            'c++': 'C++'
+            'c++': 'C++',
+            'java': 'Java'
         };
         return langMap[language] || language;
     }
@@ -303,6 +306,17 @@ class SandboxApp {
                         <div class="language-name">C++</div>
                         <div class="language-desc">适用于 C++ 代码</div>
                     </button>
+                    <button class="language-option" data-language="java">
+                        <div class="language-icon java-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                                <path d="M9 7h6M9 11h6M9 15h4"/>
+                                <path d="M12 3v2M12 19v2M5 12H3M21 12h-2"/>
+                            </svg>
+                        </div>
+                        <div class="language-name">Java</div>
+                        <div class="language-desc">适用于 Java 代码及 Java Web</div>
+                    </button>
                 </div>
             </div>
         `;
@@ -352,6 +366,10 @@ class SandboxApp {
             defaultTag = '13';
             hintText = 'GCC (C++): 如 <code>13</code>, <code>12</code>, <code>11</code>, <code>latest</code>';
             quickTags = ['13', '12', '11', 'latest'];
+        } else if (language === 'java') {
+            defaultTag = '21-jdk';
+            hintText = 'Eclipse Temurin (OpenJDK): 如 <code>21-jdk</code>, <code>17-jdk</code>, <code>11-jdk</code>, <code>21-jdk-alpine</code>';
+            quickTags = ['21-jdk', '17-jdk', '11-jdk', '21-jdk-alpine'];
         } else {
             defaultTag = '';
             hintText = '留空则使用默认镜像';
