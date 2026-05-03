@@ -1,0 +1,22 @@
+{
+  "name": "wordcloud-generator",
+  "version": "1.0.0",
+  "description": "React-based word cloud generator",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 4444",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-tagcloud": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^4.5.0"
+  }
+}
