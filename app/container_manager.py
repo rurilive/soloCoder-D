@@ -767,6 +767,18 @@ class ContainerManager:
     ) -> Tuple[int, str, str]:
         install_container_name = f"sandbox-install-{uuid.uuid4().hex[:8]}"
         
+        install_script = f'''
+set -e
+echo "Installing {full_package}..."
+mkdir -p /tmp/install
+pip3 install --no-cache-dir --target=/tmp/install "{full_package}"
+echo "Copying installed files to {SITE_PACKAGES_MOUNT_PATH}..."
+if [ -d "/tmp/install" ]; then
+    cp -r /tmp/install/* "{SITE_PACKAGES_MOUNT_PATH}/" 2>/dev/null || true
+fi
+echo "Installation completed successfully"
+'''
+        
         try:
             docker_run_cmd = [
                 "docker", "run",
@@ -781,16 +793,11 @@ class ContainerManager:
                 "--pids-limit", "64",
                 "-v", f"{site_packages_dir}:{SITE_PACKAGES_MOUNT_PATH}:rw",
                 "-e", f"PYTHONPATH={SITE_PACKAGES_MOUNT_PATH}",
-                "--read-only",
-                "--tmpfs", "/tmp",
-                "--tmpfs", "/var/tmp",
+                "--tmpfs", "/tmp:size=512m",
+                "--tmpfs", "/var/tmp:size=64m",
                 image_name,
-                "pip3", "install",
-                "--quiet",
-                "--no-cache-dir",
-                "--break-system-packages",
-                "--target", SITE_PACKAGES_MOUNT_PATH,
-                full_package
+                "sh", "-c",
+                install_script
             ]
             
             logger.info(f"Starting install container for package: {full_package}")
