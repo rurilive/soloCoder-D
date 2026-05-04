@@ -14,6 +14,13 @@
             <div class="timer-display">
                 <span id="minutes">25</span>:<span id="seconds">00</span>
             </div>
+            <div class="timer-label" id="timer-label">工作时间</div>
+        </div>
+        
+        <div class="modes">
+            <button id="work-mode" class="mode-btn mode-active" data-mode="work">工作 (25分钟)</button>
+            <button id="short-break-mode" class="mode-btn" data-mode="short-break">短休息 (5分钟)</button>
+            <button id="long-break-mode" class="mode-btn" data-mode="long-break">长休息 (15分钟)</button>
         </div>
         
         <div class="quick-time-buttons">
@@ -41,6 +48,26 @@
             <button id="reset-btn" class="btn btn-secondary">重置</button>
         </div>
         
+        <div class="custom-time-section">
+            <h3>自定义时间设置</h3>
+            <div class="custom-time-controls">
+                <div class="time-input-group">
+                    <label for="custom-work-time">工作时间 (分钟)</label>
+                    <input type="number" id="custom-work-time" min="1" max="60" value="25">
+                </div>
+                <div class="time-input-group">
+                    <label for="custom-short-break">短休息 (分钟)</label>
+                    <input type="number" id="custom-short-break" min="1" max="30" value="5">
+                </div>
+                <div class="time-input-group">
+                    <label for="custom-long-break">长休息 (分钟)</label>
+                    <input type="number" id="custom-long-break" min="1" max="60" value="15">
+                </div>
+            </div>
+            <button id="apply-custom-time" class="btn btn-secondary">应用自定义时间</button>
+            <button id="reset-default-time" class="btn btn-secondary">恢复默认</button>
+        </div>
+        
         <div class="stats">
             <div class="stat-item">
                 <span class="stat-label">已完成番茄钟</span>
@@ -55,9 +82,9 @@
         <div class="tips">
             <h3>使用提示</h3>
             <ul>
-                <li>点击上方快速按钮或在下方输入框中设置时间</li>
-                <li>设置好时间后点击开始按钮开始倒计时</li>
-                <li>保持专注，尽量避免中断</li>
+                <li>选择工作模式后点击开始，专注工作25分钟</li>
+                <li>工作完成后休息5分钟，4个番茄钟后休息15分钟</li>
+                <li>也可以使用快速按钮或自定义时间进行倒计时</li>
             </ul>
         </div>
     </div>
