@@ -11,10 +11,8 @@ import os
 
 from database import (
     get_db, 
-    init_db, 
     TimerRecord, 
-    TimerMode,
-    SessionLocal
+    TimerMode
 )
 
 app = FastAPI(title="番茄工作法计时器")
@@ -51,11 +49,6 @@ class TimerRecordResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 
 @app.get("/", response_class=HTMLResponse)
