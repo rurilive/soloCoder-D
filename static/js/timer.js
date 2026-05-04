@@ -10,8 +10,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const pomodoroCountDisplay = document.getElementById('pomodoro-count');
     const totalTimeDisplay = document.getElementById('total-time');
 
-    // 时间配置（分钟）
-    const timeConfig = {
+    // 自定义时间相关元素
+    const customWorkTimeInput = document.getElementById('custom-work-time');
+    const customShortBreakInput = document.getElementById('custom-short-break');
+    const customLongBreakInput = document.getElementById('custom-long-break');
+    const applyCustomTimeBtn = document.getElementById('apply-custom-time');
+    const resetDefaultTimeBtn = document.getElementById('reset-default-time');
+    const workTimeText = document.getElementById('work-time-text');
+    const shortBreakTimeText = document.getElementById('short-break-time-text');
+    const longBreakTimeText = document.getElementById('long-break-time-text');
+
+    // 默认时间配置（分钟）
+    const defaultTimeConfig = {
+        'work': 25,
+        'short-break': 5,
+        'long-break': 15
+    };
+
+    // 当前时间配置
+    let timeConfig = {
         'work': 25,
         'short-break': 5,
         'long-break': 15
@@ -52,6 +69,68 @@ document.addEventListener('DOMContentLoaded', function() {
             'long-break': '长休息时间'
         };
         timerLabel.textContent = labels[currentMode];
+    }
+
+    // 更新模式按钮上的时间文本
+    function updateModeButtonTexts() {
+        workTimeText.textContent = timeConfig['work'];
+        shortBreakTimeText.textContent = timeConfig['short-break'];
+        longBreakTimeText.textContent = timeConfig['long-break'];
+    }
+
+    // 应用自定义时间
+    function applyCustomTime() {
+        const workTime = parseInt(customWorkTimeInput.value);
+        const shortBreakTime = parseInt(customShortBreakInput.value);
+        const longBreakTime = parseInt(customLongBreakInput.value);
+
+        if (isNaN(workTime) || workTime < 1 || workTime > 60) {
+            alert('工作时间必须是1-60分钟之间的数字');
+            return;
+        }
+        if (isNaN(shortBreakTime) || shortBreakTime < 1 || shortBreakTime > 30) {
+            alert('短休息时间必须是1-30分钟之间的数字');
+            return;
+        }
+        if (isNaN(longBreakTime) || longBreakTime < 1 || longBreakTime > 60) {
+            alert('长休息时间必须是1-60分钟之间的数字');
+            return;
+        }
+
+        timeConfig['work'] = workTime;
+        timeConfig['short-break'] = shortBreakTime;
+        timeConfig['long-break'] = longBreakTime;
+
+        updateModeButtonTexts();
+
+        if (isRunning) {
+            pauseTimer();
+        }
+        totalSeconds = timeConfig[currentMode] * 60;
+        updateDisplay();
+
+        alert('自定义时间已应用！');
+    }
+
+    // 恢复默认时间
+    function resetDefaultTime() {
+        timeConfig['work'] = defaultTimeConfig['work'];
+        timeConfig['short-break'] = defaultTimeConfig['short-break'];
+        timeConfig['long-break'] = defaultTimeConfig['long-break'];
+
+        customWorkTimeInput.value = defaultTimeConfig['work'];
+        customShortBreakInput.value = defaultTimeConfig['short-break'];
+        customLongBreakInput.value = defaultTimeConfig['long-break'];
+
+        updateModeButtonTexts();
+
+        if (isRunning) {
+            pauseTimer();
+        }
+        totalSeconds = timeConfig[currentMode] * 60;
+        updateDisplay();
+
+        alert('已恢复默认时间设置！');
     }
 
     // 切换模式
@@ -176,6 +255,9 @@ document.addEventListener('DOMContentLoaded', function() {
             switchMode(btn.dataset.mode);
         });
     });
+
+    applyCustomTimeBtn.addEventListener('click', applyCustomTime);
+    resetDefaultTimeBtn.addEventListener('click', resetDefaultTime);
 
     // 键盘快捷键
     document.addEventListener('keydown', (e) => {

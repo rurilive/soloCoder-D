@@ -20,3 +20,7 @@ env = Environment(
 async def read_root(request: Request):
     template = env.get_template("index.html")
     return HTMLResponse(content=template.render(request=request))
+
+if __name__=="__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=4444)
