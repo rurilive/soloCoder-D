@@ -382,11 +382,12 @@ document.addEventListener('DOMContentLoaded', function() {
         currentSegment.is_completed = true;
         updateCycleSegmentsDisplay();
         
+        const segmentsCompleted = activeCycleSegments.filter(s => s.is_completed).length;
+        const totalSegments = activeCycleSegments.length;
         const workSegmentsCompleted = activeCycleSegments.filter(s => s.segment_type === 'work' && s.is_completed).length;
-        const totalWorkSegments = activeCycleSegments.filter(s => s.segment_type === 'work').length;
         
-        cycleProgress.textContent = `${workSegmentsCompleted}/${totalWorkSegments}`;
-        const progressPercent = (workSegmentsCompleted / totalWorkSegments) * 100;
+        cycleProgress.textContent = `${segmentsCompleted}/${totalSegments}`;
+        const progressPercent = (segmentsCompleted / totalSegments) * 100;
         cycleProgressFill.style.width = `${progressPercent}%`;
         
         currentSegmentIndex++;
@@ -468,11 +469,12 @@ document.addEventListener('DOMContentLoaded', function() {
             currentSegment.is_completed = true;
             updateCycleSegmentsDisplay();
             
+            const segmentsCompleted = activeCycleSegments.filter(s => s.is_completed).length;
+            const totalSegments = activeCycleSegments.length;
             const workSegmentsCompleted = activeCycleSegments.filter(s => s.segment_type === 'work' && s.is_completed).length;
-            const totalWorkSegments = activeCycleSegments.filter(s => s.segment_type === 'work').length;
             
-            cycleProgress.textContent = `${workSegmentsCompleted}/${totalWorkSegments}`;
-            const progressPercent = totalWorkSegments > 0 ? (workSegmentsCompleted / totalWorkSegments) * 100 : 0;
+            cycleProgress.textContent = `${segmentsCompleted}/${totalSegments}`;
+            const progressPercent = totalSegments > 0 ? (segmentsCompleted / totalSegments) * 100 : 0;
             cycleProgressFill.style.width = `${progressPercent}%`;
             
             currentSegmentIndex++;
@@ -624,11 +626,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         activeCycleName.textContent = activeCycle.name;
         
-        const workSegments = activeCycleSegments.filter(s => s.segment_type === 'work');
-        const completedWorkSegments = workSegments.filter(s => s.is_completed);
+        const segmentsCompleted = activeCycleSegments.filter(s => s.is_completed).length;
+        const totalSegments = activeCycleSegments.length;
         
-        cycleProgress.textContent = `${completedWorkSegments.length}/${workSegments.length}`;
-        const progressPercent = workSegments.length > 0 ? (completedWorkSegments.length / workSegments.length) * 100 : 0;
+        cycleProgress.textContent = `${segmentsCompleted}/${totalSegments}`;
+        const progressPercent = totalSegments > 0 ? (segmentsCompleted / totalSegments) * 100 : 0;
         cycleProgressFill.style.width = `${progressPercent}%`;
         
         updateCycleSegmentsDisplay();
