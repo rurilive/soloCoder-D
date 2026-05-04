@@ -166,10 +166,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // 验证输入
-        minutes = Math.max(1, Math.min(120, parseInt(minutes) || 0));
+        minutes = Math.max(0, Math.min(120, parseInt(minutes) || 0));
         seconds = Math.max(0, Math.min(59, parseInt(seconds) || 0));
         
+        // 确保总时间至少为 1 秒
         totalSeconds = minutes * 60 + seconds;
+        if (totalSeconds <= 0) {
+            totalSeconds = 1;
+            seconds = 1;
+        }
         initialSeconds = totalSeconds;
         
         // 更新输入框
@@ -222,9 +227,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 如果总秒数为0，先从输入框获取时间
         if (totalSeconds <= 0) {
-            const minutes = parseInt(customMinutesInput.value) || 25;
+            const minutes = parseInt(customMinutesInput.value) || 0;
             const seconds = parseInt(customSecondsInput.value) || 0;
             totalSeconds = minutes * 60 + seconds;
+            // 确保总时间至少为 1 秒
+            if (totalSeconds <= 0) {
+                totalSeconds = 1;
+            }
             initialSeconds = totalSeconds;
             updateDisplay();
         }
@@ -260,9 +269,14 @@ document.addEventListener('DOMContentLoaded', function() {
         pauseTimer();
         
         // 从输入框获取当前时间
-        const minutes = parseInt(customMinutesInput.value) || 25;
+        const minutes = parseInt(customMinutesInput.value);
         const seconds = parseInt(customSecondsInput.value) || 0;
-        totalSeconds = minutes * 60 + seconds;
+        // 如果分钟是 NaN（空值或无效值），使用默认值 25，否则使用输入值（允许 0）
+        totalSeconds = (isNaN(minutes) ? 25 : minutes) * 60 + seconds;
+        // 确保总时间至少为 1 秒
+        if (totalSeconds <= 0) {
+            totalSeconds = 1;
+        }
         initialSeconds = totalSeconds;
         
         updateDisplay();
