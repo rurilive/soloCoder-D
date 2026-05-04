@@ -385,6 +385,41 @@ async def complete_cycle_segment(
     return build_work_cycle_response(cycle)
 
 
+@app.post("/api/cycles/{cycle_id}/segments/{segment_id}/skip", response_model=WorkCycleResponse)
+async def skip_cycle_segment(
+    cycle_id: int,
+    segment_id: int,
+    db: Session = Depends(get_db)
+):
+    cycle = db.query(WorkCycle).filter(WorkCycle.id == cycle_id).first()
+    if cycle is None:
+        raise HTTPException(status_code=404, detail="循环不存在")
+    
+    segment = db.query(CycleSegment).filter(
+        CycleSegment.id == segment_id,
+        CycleSegment.work_cycle_id == cycle_id
+    ).first()
+    
+    if segment is None:
+        raise HTTPException(status_code=404, detail="阶段不存在")
+    
+    if segment.is_completed:
+        raise HTTPException(status_code=400, detail="该阶段已完成")
+    
+    segment.is_completed = True
+    segment.completed_at = datetime.utcnow()
+    
+    all_segments_completed = all(s.is_completed for s in cycle.segments)
+    if all_segments_completed:
+        cycle.status = CycleStatus.COMPLETED
+        cycle.completed_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(cycle)
+    
+    return build_work_cycle_response(cycle)
+
+
 @app.delete("/api/cycles/{cycle_id}")
 async def delete_work_cycle(
     cycle_id: int,

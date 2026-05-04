@@ -93,9 +93,27 @@
                         <input type="text" id="cycle-name" value="工作循环" placeholder="可选">
                     </div>
                 </div>
+                
+                <div class="cycle-time-config">
+                    <h4>循环时间设置</h4>
+                    <div class="cycle-time-controls">
+                        <div class="time-input-group">
+                            <label for="cycle-work-time">工作时间 (分钟)</label>
+                            <input type="number" id="cycle-work-time" min="1" max="60" value="25">
+                        </div>
+                        <div class="time-input-group">
+                            <label for="cycle-short-break">短休息 (分钟)</label>
+                            <input type="number" id="cycle-short-break" min="1" max="30" value="5">
+                        </div>
+                        <div class="time-input-group">
+                            <label for="cycle-long-break">长休息 (分钟)</label>
+                            <input type="number" id="cycle-long-break" min="1" max="60" value="15">
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="cycle-buttons">
                     <button id="create-cycle-btn" class="btn btn-primary">创建循环</button>
-                    <button id="cancel-cycle-btn" class="btn btn-secondary" style="display: none;">取消循环</button>
                 </div>
             </div>
             
@@ -110,7 +128,8 @@
                 <div class="cycle-segments" id="cycle-segments">
                 </div>
                 <div class="cycle-controls">
-                    <button id="pause-cycle-btn" class="btn btn-secondary" style="display: none;">暂停循环</button>
+                    <button id="pause-cycle-btn" class="btn btn-secondary">暂停循环</button>
+                    <button id="skip-segment-btn" class="btn btn-secondary">跳过当前阶段</button>
                     <button id="stop-cycle-btn" class="btn btn-secondary">结束循环</button>
                 </div>
             </div>

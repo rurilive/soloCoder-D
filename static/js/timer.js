@@ -24,15 +24,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const cyclePomodorosInput = document.getElementById('cycle-pomodoros');
     const cycleNameInput = document.getElementById('cycle-name');
     const createCycleBtn = document.getElementById('create-cycle-btn');
-    const cancelCycleBtn = document.getElementById('cancel-cycle-btn');
     const stopCycleBtn = document.getElementById('stop-cycle-btn');
     const pauseCycleBtn = document.getElementById('pause-cycle-btn');
+    const skipSegmentBtn = document.getElementById('skip-segment-btn');
     const activeCycleName = document.getElementById('active-cycle-name');
     const cycleProgress = document.getElementById('cycle-progress');
     const cycleProgressFill = document.getElementById('cycle-progress-fill');
     const cycleSegments = document.getElementById('cycle-segments');
     const cycleHistory = document.getElementById('cycle-history');
     const cycleHistoryList = document.getElementById('cycle-history-list');
+    
+    const cycleWorkTimeInput = document.getElementById('cycle-work-time');
+    const cycleShortBreakInput = document.getElementById('cycle-short-break');
+    const cycleLongBreakInput = document.getElementById('cycle-long-break');
 
     const defaultTimeConfig = {
         'work': 25,
@@ -432,12 +436,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function skipCurrentSegment() {
+        if (!activeCycle || activeCycleSegments.length === 0) return;
+        
+        if (currentSegmentIndex >= activeCycleSegments.length) return;
+        
+        if (!confirm('确定要跳过当前阶段吗？')) return;
+        
+        pauseTimer();
+        
+        const currentSegment = activeCycleSegments[currentSegmentIndex];
+        
+        try {
+            const response = await fetch(`/api/cycles/${activeCycle.id}/segments/${currentSegment.id}/skip`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (!response.ok) {
+                console.error('跳过阶段失败:', response.statusText);
+                alert('跳过阶段失败，请重试');
+                return;
+            }
+            
+            const result = await response.json();
+            activeCycle = result;
+            activeCycleSegments = result.segments || activeCycleSegments;
+            
+            currentSegment.is_completed = true;
+            updateCycleSegmentsDisplay();
+            
+            const workSegmentsCompleted = activeCycleSegments.filter(s => s.segment_type === 'work' && s.is_completed).length;
+            const totalWorkSegments = activeCycleSegments.filter(s => s.segment_type === 'work').length;
+            
+            cycleProgress.textContent = `${workSegmentsCompleted}/${totalWorkSegments}`;
+            const progressPercent = totalWorkSegments > 0 ? (workSegmentsCompleted / totalWorkSegments) * 100 : 0;
+            cycleProgressFill.style.width = `${progressPercent}%`;
+            
+            currentSegmentIndex++;
+            
+            if (currentSegmentIndex >= activeCycleSegments.length) {
+                alert(`循环 "${activeCycle.name}" 已完成！共完成 ${workSegmentsCompleted} 个番茄钟。`);
+                await endCycle();
+                return;
+            }
+            
+            const nextSegment = activeCycleSegments[currentSegmentIndex];
+            const nextMode = nextSegment.segment_type;
+            
+            alert(`已跳过当前阶段，进入下一个阶段。`);
+            
+            startNextCycleSegment(nextSegment, nextMode);
+            
+        } catch (error) {
+            console.error('跳过阶段时出错:', error);
+            alert('跳过阶段失败，请检查网络连接');
+        }
+    }
+
     async function createCycle() {
         const pomodoros = parseInt(cyclePomodorosInput.value);
         const name = cycleNameInput.value.trim() || '工作循环';
+        const workTime = parseInt(cycleWorkTimeInput.value);
+        const shortBreakTime = parseInt(cycleShortBreakInput.value);
+        const longBreakTime = parseInt(cycleLongBreakInput.value);
         
         if (isNaN(pomodoros) || pomodoros < 1 || pomodoros > 20) {
             alert('番茄钟数量必须是1-20之间的数字');
+            return;
+        }
+        
+        if (isNaN(workTime) || workTime < 1 || workTime > 60) {
+            alert('工作时间必须是1-60分钟之间的数字');
+            return;
+        }
+        if (isNaN(shortBreakTime) || shortBreakTime < 1 || shortBreakTime > 30) {
+            alert('短休息时间必须是1-30分钟之间的数字');
+            return;
+        }
+        if (isNaN(longBreakTime) || longBreakTime < 1 || longBreakTime > 60) {
+            alert('长休息时间必须是1-60分钟之间的数字');
             return;
         }
         
@@ -450,9 +530,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     name: name,
                     total_pomodoros: pomodoros,
-                    work_duration_minutes: timeConfig['work'],
-                    short_break_duration_minutes: timeConfig['short-break'],
-                    long_break_duration_minutes: timeConfig['long-break']
+                    work_duration_minutes: workTime,
+                    short_break_duration_minutes: shortBreakTime,
+                    long_break_duration_minutes: longBreakTime
                 }),
             });
             
@@ -470,6 +550,26 @@ document.addEventListener('DOMContentLoaded', function() {
             
             showCycleActive();
             updateCycleDisplay();
+            
+            if (activeCycleSegments.length > 0) {
+                const firstSegment = activeCycleSegments[0];
+                const firstMode = firstSegment.segment_type;
+                currentMode = firstMode;
+                totalSeconds = firstSegment.duration_seconds;
+                initialSeconds = totalSeconds;
+                customMinutesInput.value = Math.floor(firstSegment.duration_seconds / 60);
+                customSecondsInput.value = firstSegment.duration_seconds % 60;
+                
+                modeBtns.forEach(btn => {
+                    btn.classList.remove('mode-active');
+                    if (btn.dataset.mode === firstMode) {
+                        btn.classList.add('mode-active');
+                    }
+                });
+                
+                updateDisplay();
+                updateModeLabel();
+            }
             
             alert(`循环 "${activeCycle.name}" 已创建！点击开始按钮开始第一个番茄钟。`);
             
@@ -726,6 +826,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+    
+    if (skipSegmentBtn) {
+        skipSegmentBtn.addEventListener('click', skipCurrentSegment);
     }
 
     document.addEventListener('keydown', (e) => {
