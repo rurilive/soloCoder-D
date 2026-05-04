@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // DOM元素
     const minutesDisplay = document.getElementById('minutes');
     const secondsDisplay = document.getElementById('seconds');
     const timerLabel = document.getElementById('timer-label');
@@ -10,54 +9,63 @@ document.addEventListener('DOMContentLoaded', function() {
     const pomodoroCountDisplay = document.getElementById('pomodoro-count');
     const totalTimeDisplay = document.getElementById('total-time');
 
-    // 快速时间按钮
     const quickTimeBtns = document.querySelectorAll('.quick-time-btn');
-    
-    // 时间输入框
     const customMinutesInput = document.getElementById('custom-minutes');
     const customSecondsInput = document.getElementById('custom-seconds');
 
-    // 自定义时间相关元素（番茄工作法预设）
     const customWorkTimeInput = document.getElementById('custom-work-time');
     const customShortBreakInput = document.getElementById('custom-short-break');
     const customLongBreakInput = document.getElementById('custom-long-break');
     const applyCustomTimeBtn = document.getElementById('apply-custom-time');
     const resetDefaultTimeBtn = document.getElementById('reset-default-time');
 
-    // 默认时间配置（分钟）
+    const cycleConfig = document.getElementById('cycle-config');
+    const cycleActive = document.getElementById('cycle-active');
+    const cyclePomodorosInput = document.getElementById('cycle-pomodoros');
+    const cycleNameInput = document.getElementById('cycle-name');
+    const createCycleBtn = document.getElementById('create-cycle-btn');
+    const cancelCycleBtn = document.getElementById('cancel-cycle-btn');
+    const stopCycleBtn = document.getElementById('stop-cycle-btn');
+    const pauseCycleBtn = document.getElementById('pause-cycle-btn');
+    const activeCycleName = document.getElementById('active-cycle-name');
+    const cycleProgress = document.getElementById('cycle-progress');
+    const cycleProgressFill = document.getElementById('cycle-progress-fill');
+    const cycleSegments = document.getElementById('cycle-segments');
+    const cycleHistory = document.getElementById('cycle-history');
+    const cycleHistoryList = document.getElementById('cycle-history-list');
+
     const defaultTimeConfig = {
         'work': 25,
         'short-break': 5,
         'long-break': 15
     };
 
-    // 当前时间配置
     let timeConfig = {
         'work': 25,
         'short-break': 5,
         'long-break': 15
     };
 
-    // 状态变量
     let currentMode = 'work';
     let totalSeconds = timeConfig[currentMode] * 60;
     let timerInterval = null;
     let isRunning = false;
     let pomodoroCount = 0;
     let totalWorkMinutes = 0;
-    
-    // 保存初始时间，用于重置
     let initialSeconds = totalSeconds;
-    
-    // 标记是否使用了自定义时间（非番茄工作法模式）
     let isCustomTimeMode = false;
 
-    // 初始化
+    let activeCycle = null;
+    let activeCycleSegments = [];
+    let currentSegmentIndex = 0;
+    let isCycleMode = false;
+    let isCyclePaused = false;
+
     updateDisplay();
     updateStats();
     updateModeLabel();
+    loadCycleHistory();
 
-    // 更新计时器显示
     function updateDisplay() {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
@@ -66,13 +74,11 @@ document.addEventListener('DOMContentLoaded', function() {
         secondsDisplay.textContent = seconds.toString().padStart(2, '0');
     }
 
-    // 更新统计信息
     function updateStats() {
         pomodoroCountDisplay.textContent = pomodoroCount;
         totalTimeDisplay.textContent = `${totalWorkMinutes}分钟`;
     }
 
-    // 更新模式标签
     function updateModeLabel() {
         const labels = {
             'work': '工作时间',
@@ -83,7 +89,6 @@ document.addEventListener('DOMContentLoaded', function() {
         timerLabel.textContent = labels[currentMode] || '自定义时间';
     }
 
-    // 更新模式按钮上的时间文本
     function updateModeButtonTexts() {
         const workModeBtn = document.getElementById('work-mode');
         const shortBreakModeBtn = document.getElementById('short-break-mode');
@@ -94,7 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (longBreakModeBtn) longBreakModeBtn.textContent = `长休息 (${timeConfig['long-break']}分钟)`;
     }
 
-    // 应用自定义番茄工作法时间
     function applyCustomPomadoroTime() {
         const workTime = parseInt(customWorkTimeInput.value);
         const shortBreakTime = parseInt(customShortBreakInput.value);
@@ -123,8 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             pauseTimer();
         }
         
-        // 如果当前是番茄工作法模式，更新时间
-        if (!isCustomTimeMode) {
+        if (!isCustomTimeMode && !isCycleMode) {
             totalSeconds = timeConfig[currentMode] * 60;
             initialSeconds = totalSeconds;
             updateDisplay();
@@ -133,7 +136,6 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('自定义番茄工作法时间已应用！');
     }
 
-    // 恢复默认番茄工作法时间
     function resetDefaultPomadoroTime() {
         timeConfig['work'] = defaultTimeConfig['work'];
         timeConfig['short-break'] = defaultTimeConfig['short-break'];
@@ -149,8 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
             pauseTimer();
         }
         
-        // 如果当前是番茄工作法模式，更新时间
-        if (!isCustomTimeMode) {
+        if (!isCustomTimeMode && !isCycleMode) {
             totalSeconds = timeConfig[currentMode] * 60;
             initialSeconds = totalSeconds;
             updateDisplay();
@@ -159,17 +160,14 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('已恢复默认番茄工作法时间设置！');
     }
 
-    // 设置时间（通用方法，用于快速按钮和时间输入框）
     function setTime(minutes, seconds = 0) {
         if (isRunning) {
             pauseTimer();
         }
         
-        // 验证输入
         minutes = Math.max(0, Math.min(120, parseInt(minutes) || 0));
         seconds = Math.max(0, Math.min(59, parseInt(seconds) || 0));
         
-        // 确保总时间至少为 1 秒
         totalSeconds = minutes * 60 + seconds;
         if (totalSeconds <= 0) {
             totalSeconds = 1;
@@ -177,15 +175,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         initialSeconds = totalSeconds;
         
-        // 更新输入框
         customMinutesInput.value = minutes;
         customSecondsInput.value = seconds;
         
-        // 标记为自定义时间模式
         isCustomTimeMode = true;
         currentMode = 'custom';
         
-        // 更新模式按钮样式
         modeBtns.forEach(btn => {
             btn.classList.remove('mode-active');
         });
@@ -194,8 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
         updateModeLabel();
     }
 
-    // 切换番茄工作法模式
     function switchMode(mode) {
+        if (isCycleMode) return;
+        
         if (isRunning) {
             pauseTimer();
         }
@@ -205,11 +201,9 @@ document.addEventListener('DOMContentLoaded', function() {
         totalSeconds = timeConfig[currentMode] * 60;
         initialSeconds = totalSeconds;
         
-        // 更新时间输入框
         customMinutesInput.value = timeConfig[currentMode];
         customSecondsInput.value = 0;
         
-        // 更新模式按钮样式
         modeBtns.forEach(btn => {
             btn.classList.remove('mode-active');
             if (btn.dataset.mode === mode) {
@@ -221,16 +215,13 @@ document.addEventListener('DOMContentLoaded', function() {
         updateModeLabel();
     }
 
-    // 开始计时器
     function startTimer() {
         if (isRunning) return;
         
-        // 如果总秒数为0，先从输入框获取时间
         if (totalSeconds <= 0) {
             const minutes = parseInt(customMinutesInput.value) || 0;
             const seconds = parseInt(customSecondsInput.value) || 0;
             totalSeconds = minutes * 60 + seconds;
-            // 确保总时间至少为 1 秒
             if (totalSeconds <= 0) {
                 totalSeconds = 1;
             }
@@ -252,7 +243,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    // 暂停计时器
     function pauseTimer() {
         if (!isRunning) return;
         
@@ -264,16 +254,12 @@ document.addEventListener('DOMContentLoaded', function() {
         pauseBtn.style.display = 'none';
     }
 
-    // 重置计时器
     function resetTimer() {
         pauseTimer();
         
-        // 从输入框获取当前时间
         const minutes = parseInt(customMinutesInput.value);
         const seconds = parseInt(customSecondsInput.value) || 0;
-        // 如果分钟是 NaN（空值或无效值），使用默认值 25，否则使用输入值（允许 0）
         totalSeconds = (isNaN(minutes) ? 25 : minutes) * 60 + seconds;
-        // 确保总时间至少为 1 秒
         if (totalSeconds <= 0) {
             totalSeconds = 1;
         }
@@ -282,19 +268,24 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDisplay();
     }
 
-    // 保存记录到数据库
-    async function saveTimerRecord() {
+    async function saveTimerRecord(segmentId = null) {
         try {
+            const body = {
+                mode: currentMode,
+                duration_seconds: initialSeconds,
+                note: `模式: ${currentMode}, 时长: ${Math.ceil(initialSeconds / 60)}分钟`
+            };
+            
+            if (segmentId) {
+                body.cycle_segment_id = segmentId;
+            }
+            
             const response = await fetch('/api/records', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    mode: currentMode,
-                    duration_seconds: initialSeconds,
-                    note: `模式: ${currentMode}, 时长: ${Math.ceil(initialSeconds / 60)}分钟`
-                }),
+                body: JSON.stringify(body),
             });
             
             if (!response.ok) {
@@ -308,53 +299,343 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 计时器完成
-    function timerComplete() {
+    async function completeCycleSegment(segmentId) {
+        if (!activeCycle) return;
+        
+        try {
+            const response = await fetch(`/api/cycles/${activeCycle.id}/segments/${segmentId}/complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (!response.ok) {
+                console.error('完成阶段失败:', response.statusText);
+                return null;
+            }
+            
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('完成阶段时出错:', error);
+            return null;
+        }
+    }
+
+    async function timerComplete() {
         pauseTimer();
         
-        // 保存记录到数据库
-        saveTimerRecord();
+        let currentSegmentId = null;
+        if (isCycleMode && activeCycleSegments.length > 0 && currentSegmentIndex < activeCycleSegments.length) {
+            currentSegmentId = activeCycleSegments[currentSegmentIndex].id;
+        }
         
-        // 播放提示音（如果浏览器支持）
+        await saveTimerRecord(currentSegmentId);
+        
         playNotificationSound();
         
-        // 更新统计
         if (currentMode === 'work' || currentMode === 'custom') {
             pomodoroCount++;
             totalWorkMinutes += Math.ceil(initialSeconds / 60);
             updateStats();
         }
         
-        // 显示完成消息
-        let message = '时间到！';
-        if (currentMode === 'work') {
-            message += ' 工作时间结束，休息一下吧！';
-        } else if (currentMode === 'short-break' || currentMode === 'long-break') {
-            message += ' 休息时间结束，准备开始下一个番茄钟！';
+        if (isCycleMode && activeCycle) {
+            await handleCycleSegmentComplete();
         } else {
-            message += ' 倒计时结束！';
-        }
-        alert(message);
-        
-        // 自动切换到下一个模式（仅番茄工作法模式）
-        if (!isCustomTimeMode) {
+            let message = '时间到！';
             if (currentMode === 'work') {
-                // 每4个番茄钟后是长休息
-                if (pomodoroCount % 4 === 0) {
-                    switchMode('long-break');
-                } else {
-                    switchMode('short-break');
-                }
+                message += ' 工作时间结束，休息一下吧！';
+            } else if (currentMode === 'short-break' || currentMode === 'long-break') {
+                message += ' 休息时间结束，准备开始下一个番茄钟！';
             } else {
-                switchMode('work');
+                message += ' 倒计时结束！';
+            }
+            alert(message);
+            
+            if (!isCustomTimeMode) {
+                if (currentMode === 'work') {
+                    if (pomodoroCount % 4 === 0) {
+                        switchMode('long-break');
+                    } else {
+                        switchMode('short-break');
+                    }
+                } else {
+                    switchMode('work');
+                }
             }
         }
     }
 
-    // 播放通知音
+    async function handleCycleSegmentComplete() {
+        if (!activeCycle || activeCycleSegments.length === 0) return;
+        
+        const currentSegment = activeCycleSegments[currentSegmentIndex];
+        
+        await completeCycleSegment(currentSegment.id);
+        
+        currentSegment.is_completed = true;
+        updateCycleSegmentsDisplay();
+        
+        const workSegmentsCompleted = activeCycleSegments.filter(s => s.segment_type === 'work' && s.is_completed).length;
+        const totalWorkSegments = activeCycleSegments.filter(s => s.segment_type === 'work').length;
+        
+        cycleProgress.textContent = `${workSegmentsCompleted}/${totalWorkSegments}`;
+        const progressPercent = (workSegmentsCompleted / totalWorkSegments) * 100;
+        cycleProgressFill.style.width = `${progressPercent}%`;
+        
+        currentSegmentIndex++;
+        
+        if (currentSegmentIndex >= activeCycleSegments.length) {
+            alert(`循环 "${activeCycle.name}" 已完成！共完成 ${workSegmentsCompleted} 个番茄钟。`);
+            await endCycle();
+            return;
+        }
+        
+        const nextSegment = activeCycleSegments[currentSegmentIndex];
+        const nextMode = nextSegment.segment_type;
+        
+        let message = '时间到！';
+        if (currentSegment.segment_type === 'work') {
+            message += ' 工作时间结束，开始休息！';
+        } else {
+            message += ' 休息时间结束，准备开始下一个番茄钟！';
+        }
+        alert(message);
+        
+        startNextCycleSegment(nextSegment, nextMode);
+    }
+
+    function startNextCycleSegment(segment, mode) {
+        currentMode = mode;
+        isCustomTimeMode = false;
+        totalSeconds = segment.duration_seconds;
+        initialSeconds = totalSeconds;
+        
+        customMinutesInput.value = Math.floor(segment.duration_seconds / 60);
+        customSecondsInput.value = segment.duration_seconds % 60;
+        
+        modeBtns.forEach(btn => {
+            btn.classList.remove('mode-active');
+            if (btn.dataset.mode === mode) {
+                btn.classList.add('mode-active');
+            }
+        });
+        
+        updateCycleSegmentsDisplay();
+        updateDisplay();
+        updateModeLabel();
+        
+        if (!isCyclePaused) {
+            startTimer();
+        }
+    }
+
+    async function createCycle() {
+        const pomodoros = parseInt(cyclePomodorosInput.value);
+        const name = cycleNameInput.value.trim() || '工作循环';
+        
+        if (isNaN(pomodoros) || pomodoros < 1 || pomodoros > 20) {
+            alert('番茄钟数量必须是1-20之间的数字');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/cycles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    total_pomodoros: pomodoros,
+                    work_duration_minutes: timeConfig['work'],
+                    short_break_duration_minutes: timeConfig['short-break'],
+                    long_break_duration_minutes: timeConfig['long-break']
+                }),
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                alert('创建循环失败: ' + (error.detail || '未知错误'));
+                return;
+            }
+            
+            activeCycle = await response.json();
+            activeCycleSegments = activeCycle.segments || [];
+            currentSegmentIndex = 0;
+            isCycleMode = true;
+            isCyclePaused = false;
+            
+            showCycleActive();
+            updateCycleDisplay();
+            
+            alert(`循环 "${activeCycle.name}" 已创建！点击开始按钮开始第一个番茄钟。`);
+            
+        } catch (error) {
+            console.error('创建循环时出错:', error);
+            alert('创建循环失败，请检查网络连接');
+        }
+    }
+
+    async function endCycle() {
+        if (!activeCycle) return;
+        
+        try {
+            await fetch(`/api/cycles/${activeCycle.id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: 'cancelled'
+                }),
+            });
+        } catch (error) {
+            console.error('更新循环状态时出错:', error);
+        }
+        
+        pauseTimer();
+        isCycleMode = false;
+        isCyclePaused = false;
+        activeCycle = null;
+        activeCycleSegments = [];
+        currentSegmentIndex = 0;
+        
+        showCycleConfig();
+        loadCycleHistory();
+        
+        switchMode('work');
+    }
+
+    function showCycleActive() {
+        cycleConfig.style.display = 'none';
+        cycleActive.style.display = 'block';
+    }
+
+    function showCycleConfig() {
+        cycleConfig.style.display = 'block';
+        cycleActive.style.display = 'none';
+    }
+
+    function updateCycleDisplay() {
+        if (!activeCycle) return;
+        
+        activeCycleName.textContent = activeCycle.name;
+        
+        const workSegments = activeCycleSegments.filter(s => s.segment_type === 'work');
+        const completedWorkSegments = workSegments.filter(s => s.is_completed);
+        
+        cycleProgress.textContent = `${completedWorkSegments.length}/${workSegments.length}`;
+        const progressPercent = workSegments.length > 0 ? (completedWorkSegments.length / workSegments.length) * 100 : 0;
+        cycleProgressFill.style.width = `${progressPercent}%`;
+        
+        updateCycleSegmentsDisplay();
+    }
+
+    function updateCycleSegmentsDisplay() {
+        if (!activeCycleSegments || activeCycleSegments.length === 0) {
+            cycleSegments.innerHTML = '<p class="no-segments">暂无阶段</p>';
+            return;
+        }
+        
+        let html = '';
+        for (let i = 0; i < activeCycleSegments.length; i++) {
+            const segment = activeCycleSegments[i];
+            const isCurrent = i === currentSegmentIndex;
+            const isPast = i < currentSegmentIndex || (segment.is_completed && !isCurrent);
+            
+            let segmentClass = 'cycle-segment';
+            if (isCurrent) segmentClass += ' cycle-segment-current';
+            if (segment.is_completed) segmentClass += ' cycle-segment-completed';
+            if (isPast && !segment.is_completed) segmentClass += ' cycle-segment-past';
+            
+            const typeLabels = {
+                'work': '工作',
+                'short-break': '短休',
+                'long-break': '长休'
+            };
+            
+            const typeIcons = {
+                'work': '💼',
+                'short-break': '☕',
+                'long-break': '🌴'
+            };
+            
+            const minutes = Math.floor(segment.duration_seconds / 60);
+            
+            html += `
+                <div class="${segmentClass}" data-index="${i}">
+                    <span class="segment-icon">${typeIcons[segment.segment_type] || '⏱️'}</span>
+                    <span class="segment-type">${typeLabels[segment.segment_type] || segment.segment_type}</span>
+                    <span class="segment-duration">${minutes}分钟</span>
+                    ${segment.is_completed ? '<span class="segment-check">✓</span>' : ''}
+                </div>
+            `;
+        }
+        
+        cycleSegments.innerHTML = html;
+    }
+
+    async function loadCycleHistory() {
+        try {
+            const response = await fetch('/api/cycles?limit=10');
+            
+            if (!response.ok) {
+                console.error('加载历史循环失败:', response.statusText);
+                return;
+            }
+            
+            const cycles = await response.json();
+            
+            if (cycles.length === 0) {
+                cycleHistory.style.display = 'none';
+                return;
+            }
+            
+            cycleHistory.style.display = 'block';
+            
+            let html = '';
+            for (const cycle of cycles) {
+                if (cycle.status === 'running' || cycle.status === 'pending') continue;
+                
+                const statusLabels = {
+                    'completed': '已完成',
+                    'cancelled': '已取消'
+                };
+                
+                const statusColors = {
+                    'completed': 'status-completed',
+                    'cancelled': 'status-cancelled'
+                };
+                
+                const completedWork = cycle.segments ? 
+                    cycle.segments.filter(s => s.segment_type === 'work' && s.is_completed).length : 0;
+                
+                html += `
+                    <div class="history-item">
+                        <div class="history-header">
+                            <span class="history-name">${cycle.name || '未命名循环'}</span>
+                            <span class="history-status ${statusColors[cycle.status] || ''}">${statusLabels[cycle.status] || cycle.status}</span>
+                        </div>
+                        <div class="history-details">
+                            <span>完成: ${completedWork}/${cycle.total_pomodoros} 个番茄钟</span>
+                            <span>创建时间: ${new Date(cycle.created_at).toLocaleString('zh-CN')}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            cycleHistoryList.innerHTML = html || '<p class="no-history">暂无历史记录</p>';
+            
+        } catch (error) {
+            console.error('加载历史循环时出错:', error);
+        }
+    }
+
     function playNotificationSound() {
         try {
-            // 创建一个简单的音频上下文
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
@@ -375,40 +656,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 事件监听器
     startBtn.addEventListener('click', startTimer);
     pauseBtn.addEventListener('click', pauseTimer);
     resetBtn.addEventListener('click', resetTimer);
     
-    // 番茄工作法模式按钮点击事件
     modeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            switchMode(btn.dataset.mode);
+            if (!isCycleMode) {
+                switchMode(btn.dataset.mode);
+            }
         });
     });
     
-    // 快速时间按钮点击事件
     quickTimeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            const minutes = parseInt(btn.dataset.minutes);
-            setTime(minutes, 0);
+            if (!isCycleMode) {
+                const minutes = parseInt(btn.dataset.minutes);
+                setTime(minutes, 0);
+            }
         });
     });
     
-    // 时间输入框变化事件
     customMinutesInput.addEventListener('change', () => {
-        const minutes = parseInt(customMinutesInput.value) || 25;
-        const seconds = parseInt(customSecondsInput.value) || 0;
-        setTime(minutes, seconds);
+        if (!isCycleMode) {
+            const minutes = parseInt(customMinutesInput.value) || 25;
+            const seconds = parseInt(customSecondsInput.value) || 0;
+            setTime(minutes, seconds);
+        }
     });
     
     customSecondsInput.addEventListener('change', () => {
-        const minutes = parseInt(customMinutesInput.value) || 25;
-        const seconds = parseInt(customSecondsInput.value) || 0;
-        setTime(minutes, seconds);
+        if (!isCycleMode) {
+            const minutes = parseInt(customMinutesInput.value) || 25;
+            const seconds = parseInt(customSecondsInput.value) || 0;
+            setTime(minutes, seconds);
+        }
     });
     
-    // 自定义番茄工作法时间按钮事件
     if (applyCustomTimeBtn) {
         applyCustomTimeBtn.addEventListener('click', applyCustomPomadoroTime);
     }
@@ -416,7 +700,34 @@ document.addEventListener('DOMContentLoaded', function() {
         resetDefaultTimeBtn.addEventListener('click', resetDefaultPomadoroTime);
     }
 
-    // 键盘快捷键
+    if (createCycleBtn) {
+        createCycleBtn.addEventListener('click', createCycle);
+    }
+    
+    if (stopCycleBtn) {
+        stopCycleBtn.addEventListener('click', () => {
+            if (confirm('确定要结束当前循环吗？')) {
+                endCycle();
+            }
+        });
+    }
+    
+    if (pauseCycleBtn) {
+        pauseCycleBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+                isCyclePaused = true;
+                pauseCycleBtn.textContent = '继续循环';
+            } else if (isCyclePaused) {
+                isCyclePaused = false;
+                pauseCycleBtn.textContent = '暂停循环';
+                if (activeCycle && activeCycleSegments.length > 0) {
+                    startTimer();
+                }
+            }
+        });
+    }
+
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space') {
             e.preventDefault();
@@ -426,7 +737,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 startTimer();
             }
         } else if (e.code === 'KeyR') {
-            resetTimer();
+            if (!isCycleMode) {
+                resetTimer();
+            }
         }
     });
 });

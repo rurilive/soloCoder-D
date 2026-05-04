@@ -79,6 +79,49 @@
             </div>
         </div>
         
+        <div class="cycle-section" id="cycle-section">
+            <h3>工作循环</h3>
+            
+            <div class="cycle-config" id="cycle-config">
+                <div class="cycle-config-row">
+                    <div class="time-input-group">
+                        <label for="cycle-pomodoros">循环番茄钟数</label>
+                        <input type="number" id="cycle-pomodoros" min="1" max="20" value="4">
+                    </div>
+                    <div class="time-input-group">
+                        <label for="cycle-name">循环名称</label>
+                        <input type="text" id="cycle-name" value="工作循环" placeholder="可选">
+                    </div>
+                </div>
+                <div class="cycle-buttons">
+                    <button id="create-cycle-btn" class="btn btn-primary">创建循环</button>
+                    <button id="cancel-cycle-btn" class="btn btn-secondary" style="display: none;">取消循环</button>
+                </div>
+            </div>
+            
+            <div class="cycle-active" id="cycle-active" style="display: none;">
+                <div class="cycle-info">
+                    <span class="cycle-name" id="active-cycle-name">工作循环</span>
+                    <span class="cycle-progress" id="cycle-progress">0/4</span>
+                </div>
+                <div class="cycle-progress-bar">
+                    <div class="cycle-progress-fill" id="cycle-progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="cycle-segments" id="cycle-segments">
+                </div>
+                <div class="cycle-controls">
+                    <button id="pause-cycle-btn" class="btn btn-secondary" style="display: none;">暂停循环</button>
+                    <button id="stop-cycle-btn" class="btn btn-secondary">结束循环</button>
+                </div>
+            </div>
+            
+            <div class="cycle-history" id="cycle-history" style="display: none;">
+                <h4>历史循环</h4>
+                <div class="cycle-history-list" id="cycle-history-list">
+                </div>
+            </div>
+        </div>
+        
         <div class="tips">
             <h3>使用提示</h3>
             <ul>
