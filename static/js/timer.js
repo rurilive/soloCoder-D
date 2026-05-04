@@ -282,9 +282,38 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDisplay();
     }
 
+    // 保存记录到数据库
+    async function saveTimerRecord() {
+        try {
+            const response = await fetch('/api/records', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    mode: currentMode,
+                    duration_seconds: initialSeconds,
+                    note: `模式: ${currentMode}, 时长: ${Math.ceil(initialSeconds / 60)}分钟`
+                }),
+            });
+            
+            if (!response.ok) {
+                console.error('保存记录失败:', response.statusText);
+            } else {
+                const result = await response.json();
+                console.log('记录已保存:', result);
+            }
+        } catch (error) {
+            console.error('保存记录时出错:', error);
+        }
+    }
+
     // 计时器完成
     function timerComplete() {
         pauseTimer();
+        
+        // 保存记录到数据库
+        saveTimerRecord();
         
         // 播放提示音（如果浏览器支持）
         playNotificationSound();
