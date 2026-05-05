@@ -196,44 +196,83 @@ body {
     height: 30px;
 }
 
-.custom-time-section {
+.more-options {
+    text-align: center;
+}
+
+.dropdown-menu {
     background-color: #f8f9fa;
     border-radius: 15px;
-    padding: 25px;
-    margin-bottom: 30px;
+    padding: 20px;
+    margin-top: 15px;
+    text-align: left;
+    animation: slideDown 0.3s ease;
 }
 
-.custom-time-section h3 {
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.dropdown-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.dropdown-section h4 {
     color: #ff6b6b;
-    margin-bottom: 20px;
-    font-size: 1.2rem;
+    margin-bottom: 12px;
+    font-size: 1rem;
+    font-weight: 600;
 }
 
-.custom-time-controls {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-bottom: 20px;
+.dropdown-section h5 {
+    color: #666;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
-.custom-time-section .time-input-group {
+.quick-time-buttons-inline {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.time-input-section-inline {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.time-input-section-inline .time-input-group {
     gap: 5px;
 }
 
-.custom-time-section .time-input-group label {
+.time-input-section-inline .time-input-group label {
     font-size: 0.8rem;
 }
 
-.custom-time-section .time-input-group input[type="number"] {
+.time-input-section-inline .time-input-group input[type="number"] {
     width: 70px;
     padding: 10px;
     font-size: 1rem;
-}
-
-.custom-time-section .btn {
-    margin: 0 5px;
-    padding: 10px 25px;
-    font-size: 0.9rem;
 }
 
 .stats {
@@ -556,19 +595,18 @@ body {
         font-size: 0.75rem;
     }
     
-    .time-input-section {
+    .dropdown-menu {
+        padding: 15px;
+    }
+    
+    .quick-time-buttons-inline {
+        gap: 6px;
+    }
+    
+    .time-input-section-inline {
         flex-direction: column;
+        align-items: flex-start;
         gap: 15px;
-    }
-    
-    .custom-time-controls {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-    
-    .custom-time-section .btn {
-        width: 100%;
-        margin: 5px 0;
     }
     
     .stats {

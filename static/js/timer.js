@@ -13,11 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const customMinutesInput = document.getElementById('custom-minutes');
     const customSecondsInput = document.getElementById('custom-seconds');
 
-    const customWorkTimeInput = document.getElementById('custom-work-time');
-    const customShortBreakInput = document.getElementById('custom-short-break');
-    const customLongBreakInput = document.getElementById('custom-long-break');
-    const applyCustomTimeBtn = document.getElementById('apply-custom-time');
-    const resetDefaultTimeBtn = document.getElementById('reset-default-time');
+    const moreOptionsBtn = document.getElementById('more-options-btn');
+    const moreOptionsMenu = document.getElementById('more-options-menu');
 
     const cycleConfig = document.getElementById('cycle-config');
     const cycleActive = document.getElementById('cycle-active');
@@ -44,14 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'long-break': 15
     };
 
-    let timeConfig = {
-        'work': 25,
-        'short-break': 5,
-        'long-break': 15
-    };
-
     let currentMode = 'work';
-    let totalSeconds = timeConfig[currentMode] * 60;
+    let totalSeconds = defaultTimeConfig[currentMode] * 60;
     let timerInterval = null;
     let isRunning = false;
     let pomodoroCount = 0;
@@ -93,77 +84,6 @@ document.addEventListener('DOMContentLoaded', function() {
         timerLabel.textContent = labels[currentMode] || '自定义时间';
     }
 
-    function updateModeButtonTexts() {
-        const workModeBtn = document.getElementById('work-mode');
-        const shortBreakModeBtn = document.getElementById('short-break-mode');
-        const longBreakModeBtn = document.getElementById('long-break-mode');
-        
-        if (workModeBtn) workModeBtn.textContent = `工作 (${timeConfig['work']}分钟)`;
-        if (shortBreakModeBtn) shortBreakModeBtn.textContent = `短休息 (${timeConfig['short-break']}分钟)`;
-        if (longBreakModeBtn) longBreakModeBtn.textContent = `长休息 (${timeConfig['long-break']}分钟)`;
-    }
-
-    function applyCustomPomadoroTime() {
-        const workTime = parseInt(customWorkTimeInput.value);
-        const shortBreakTime = parseInt(customShortBreakInput.value);
-        const longBreakTime = parseInt(customLongBreakInput.value);
-
-        if (isNaN(workTime) || workTime < 1 || workTime > 60) {
-            alert('工作时间必须是1-60分钟之间的数字');
-            return;
-        }
-        if (isNaN(shortBreakTime) || shortBreakTime < 1 || shortBreakTime > 30) {
-            alert('短休息时间必须是1-30分钟之间的数字');
-            return;
-        }
-        if (isNaN(longBreakTime) || longBreakTime < 1 || longBreakTime > 60) {
-            alert('长休息时间必须是1-60分钟之间的数字');
-            return;
-        }
-
-        timeConfig['work'] = workTime;
-        timeConfig['short-break'] = shortBreakTime;
-        timeConfig['long-break'] = longBreakTime;
-
-        updateModeButtonTexts();
-
-        if (isRunning) {
-            pauseTimer();
-        }
-        
-        if (!isCustomTimeMode && !isCycleMode) {
-            totalSeconds = timeConfig[currentMode] * 60;
-            initialSeconds = totalSeconds;
-            updateDisplay();
-        }
-
-        alert('自定义番茄工作法时间已应用！');
-    }
-
-    function resetDefaultPomadoroTime() {
-        timeConfig['work'] = defaultTimeConfig['work'];
-        timeConfig['short-break'] = defaultTimeConfig['short-break'];
-        timeConfig['long-break'] = defaultTimeConfig['long-break'];
-
-        customWorkTimeInput.value = defaultTimeConfig['work'];
-        customShortBreakInput.value = defaultTimeConfig['short-break'];
-        customLongBreakInput.value = defaultTimeConfig['long-break'];
-
-        updateModeButtonTexts();
-
-        if (isRunning) {
-            pauseTimer();
-        }
-        
-        if (!isCustomTimeMode && !isCycleMode) {
-            totalSeconds = timeConfig[currentMode] * 60;
-            initialSeconds = totalSeconds;
-            updateDisplay();
-        }
-
-        alert('已恢复默认番茄工作法时间设置！');
-    }
-
     function setTime(minutes, seconds = 0) {
         if (isRunning) {
             pauseTimer();
@@ -202,10 +122,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         currentMode = mode;
         isCustomTimeMode = false;
-        totalSeconds = timeConfig[currentMode] * 60;
+        totalSeconds = defaultTimeConfig[currentMode] * 60;
         initialSeconds = totalSeconds;
         
-        customMinutesInput.value = timeConfig[currentMode];
+        customMinutesInput.value = defaultTimeConfig[currentMode];
         customSecondsInput.value = 0;
         
         modeBtns.forEach(btn => {
@@ -795,11 +715,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    if (applyCustomTimeBtn) {
-        applyCustomTimeBtn.addEventListener('click', applyCustomPomadoroTime);
-    }
-    if (resetDefaultTimeBtn) {
-        resetDefaultTimeBtn.addEventListener('click', resetDefaultPomadoroTime);
+    if (moreOptionsBtn) {
+        moreOptionsBtn.addEventListener('click', () => {
+            if (moreOptionsMenu.style.display === 'none' || moreOptionsMenu.style.display === '') {
+                moreOptionsMenu.style.display = 'block';
+                moreOptionsBtn.textContent = '收起选项 ▼';
+            } else {
+                moreOptionsMenu.style.display = 'none';
+                moreOptionsBtn.textContent = '更多选项 ⋯';
+            }
+        });
     }
 
     if (createCycleBtn) {
