@@ -23,6 +23,25 @@
             <button id="long-break-mode" class="mode-btn" data-mode="long-break">长休息 (15分钟)</button>
         </div>
         
+        <div class="quick-time-buttons">
+            <button class="quick-time-btn" data-minutes="5">5分钟</button>
+            <button class="quick-time-btn" data-minutes="15">15分钟</button>
+            <button class="quick-time-btn" data-minutes="25">25分钟</button>
+            <button class="quick-time-btn" data-minutes="45">45分钟</button>
+            <button class="quick-time-btn" data-minutes="60">60分钟</button>
+        </div>
+        
+        <div class="time-input-section">
+            <div class="time-input-group">
+                <label for="custom-minutes">分钟</label>
+                <input type="number" id="custom-minutes" min="0" max="120" value="25">
+            </div>
+            <div class="time-input-group">
+                <label for="custom-seconds">秒</label>
+                <input type="number" id="custom-seconds" min="0" max="59" value="0">
+            </div>
+        </div>
+        
         <div class="controls">
             <button id="start-btn" class="btn btn-primary">开始</button>
             <button id="pause-btn" class="btn btn-secondary" style="display: none;">暂停</button>
@@ -41,34 +60,9 @@
         </div>
         
         <div class="more-options">
-            <button id="more-options-btn" class="btn btn-secondary">更多选项 ⋯</button>
+            <button id="more-options-btn" class="btn btn-secondary">工作循环 ⋯</button>
             
             <div class="dropdown-menu" id="more-options-menu" style="display: none;">
-                <div class="dropdown-section">
-                    <h4>快速时间</h4>
-                    <div class="quick-time-buttons-inline">
-                        <button class="quick-time-btn" data-minutes="5">5分钟</button>
-                        <button class="quick-time-btn" data-minutes="15">15分钟</button>
-                        <button class="quick-time-btn" data-minutes="25">25分钟</button>
-                        <button class="quick-time-btn" data-minutes="45">45分钟</button>
-                        <button class="quick-time-btn" data-minutes="60">60分钟</button>
-                    </div>
-                </div>
-                
-                <div class="dropdown-section">
-                    <h4>自定义时间</h4>
-                    <div class="time-input-section-inline">
-                        <div class="time-input-group">
-                            <label for="custom-minutes">分钟</label>
-                            <input type="number" id="custom-minutes" min="0" max="120" value="25">
-                        </div>
-                        <div class="time-input-group">
-                            <label for="custom-seconds">秒</label>
-                            <input type="number" id="custom-seconds" min="0" max="59" value="0">
-                        </div>
-                    </div>
-                </div>
-                
                 <div class="dropdown-section">
                     <h4>工作循环</h4>
                     <div class="cycle-config" id="cycle-config">
